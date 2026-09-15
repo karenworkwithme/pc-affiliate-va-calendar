@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Physician's Choice · VA Team Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Pinyon+Script&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Firebase (used when this file is hosted outside Claude.ai, e.g. Google Sites) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --blush: #fdf3f2;
+    --card: #fffdfc;
+    --rose: #c25a7c;
+    --rose-deep: #a43f63;
+    --dusty: #ecb9c7;
+    --leaf: #8ea37e;
+    --leaf-deep: #6f8760;
+    --gold: #d9a441;
+    --plum: #4a2e39;
+    --plum-soft: #8a6b75;
+    --line: #f1d9de;
+    --shadow: 0 8px 24px rgba(162, 90, 120, 0.12);
+    --maroon: #6d2140;
+    --check-line: #f0c49a;
+    --banner-pink: #e0a7b9;
+    --coral: #f2977a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Quicksand', sans-serif;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(236,185,199,0.35) 0%, transparent 40%),
+      radial-gradient(circle at 95% 90%, rgba(142,163,126,0.18) 0%, transparent 45%),
+      var(--blush);
+    color:var(--plum);
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+  .corner-floral{position:fixed; z-index:0; pointer-events:none; opacity:0.55;}
+  .corner-floral.tl{top:-30px; left:-30px;}
+  .corner-floral.br{bottom:-40px; right:-40px; transform:rotate(20deg);}
+  .app{position:relative; z-index:1;}
+  h1,h2,h3{font-family:'Playfair Display', serif; margin:0;}
+  .app{max-width:1180px; margin:0 auto; padding:28px 20px 60px;}
+
+  /* header */
+  header.top{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:20px; flex-wrap:wrap; margin-bottom:22px; position:relative;
+  }
+  .brand{display:flex; align-items:center; gap:16px;}
+  .logo-badge{
+    width:58px; height:58px; border-radius:50%; flex-shrink:0;
+    background:radial-gradient(circle at 35% 30%, #fff 0%, var(--dusty) 55%, var(--rose) 100%);
+    border:1.5px solid var(--rose);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:var(--shadow); position:relative;
+  }
+  .logo-badge .initials{font-family:'Playfair Display', serif; font-weight:600; font-size:19px; color:var(--rose-deep);}
+  .brand-text .company{font-family:'Playfair Display', serif; font-size:15px; font-weight:600; color:var(--rose-deep); letter-spacing:0.3px;}
+  .brand h1{font-size:26px; color:var(--plum); font-weight:600; letter-spacing:0.2px; margin-top:1px;}
+  .brand .sub{font-size:13px; color:var(--plum-soft); margin-top:2px;}
+  .clocks{display:flex; gap:14px; flex-wrap:wrap;}
+  .clock{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:10px 18px; box-shadow:var(--shadow); min-width:150px; text-align:center;
+  }
+  .clock .zone{font-size:11.5px; color:var(--leaf-deep); font-weight:700; letter-spacing:0.4px;}
+  .clock .time{font-family:'Playfair Display',serif; font-size:20px; color:var(--rose-deep); margin-top:2px;}
+  .clock .date{font-size:11px; color:var(--plum-soft); margin-top:1px;}
+
+  /* layout */
+  .layout{display:grid; grid-template-columns:260px 1fr; gap:22px; align-items:start;}
+  @media(max-width:820px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:18px;
+    box-shadow:var(--shadow); padding:20px;
+  }
+
+  /* sidebar */
+  .sidebar h3{font-size:17px; color:var(--rose-deep); margin-bottom:12px;}
+  .va-list{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .va-chip{
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:12px; background:#fff9f7; border:1px solid var(--line); flex-wrap:wrap;
+  }
+  .va-dot{width:12px; height:12px; border-radius:50%; flex-shrink:0;}
+  .va-chip .name{flex:1; font-weight:600; font-size:14px; min-width:60px;}
+  .va-chip .email{width:100%; font-size:11px; color:var(--plum-soft); padding-left:22px; margin-top:-4px;}
+  .va-chip button{
+    background:none; border:none; color:var(--plum-soft); cursor:pointer;
+    font-size:15px; line-height:1; padding:2px 4px; border-radius:6px;
+  }
+  .va-chip button:hover{background:var(--line); color:var(--rose-deep);}
+  .va-chip .invite-btn{font-size:13px;}
+  .invite-link-row{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
+  .invite-link-row label{font-size:11.5px; font-weight:700; color:var(--plum-soft); display:block; margin-bottom:5px;}
+  .invite-link-row input{
+    width:100%; padding:7px 9px; border-radius:9px; border:1px solid var(--line);
+    font-family:inherit; font-size:12.5px; background:#fff;
+  }
+  .invite-link-row .hint{font-size:11px; color:var(--plum-soft); margin-top:5px; line-height:1.4;}
+
+  .add-va-form{display:none; flex-direction:column; gap:8px; margin-top:6px;}
+  .add-va-form.open{display:flex;}
+  .add-va-form input[type=text], .add-va-form input[type=email]{
+    padding:8px 10px; border-radius:10px; border:1px solid var(--line);
+    font-family:inherit; font-size:14px; background:#fff;
+  }
+  .swatches{display:flex; gap:7px; flex-wrap:wrap;}
+  .swatch{width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent;}
+  .swatch.selected{border-color:var(--plum);}
+
+  .btn{
+    font-family:inherit; font-weight:700; font-size:13.5px; cursor:pointer;
+    border:none; border-radius:10px; padding:9px 14px; transition:transform .08s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--rose); color:#fff;}
+  .btn-primary:hover{background:var(--rose-deep);}
+  .btn-outline{background:transparent; color:var(--rose-deep); border:1.5px solid var(--dusty);}
+  .btn-outline:hover{background:#fff0f3;}
+  .btn-ghost{background:transparent; color:var(--plum-soft); font-weight:600;}
+
+  .legend{margin-top:18px; padding-top:14px; border-top:1px dashed var(--line); font-size:12.5px; color:var(--plum-soft);}
+  .legend div{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  .legend .swatch-sm{width:9px; height:9px; border-radius:50%; background:var(--rose);}
+
+  .empty-hint{font-size:13px; color:var(--plum-soft); line-height:1.5; margin-bottom:10px;}
+
+  /* calendar */
+  .calendar-panel{position:relative; overflow:visible;}
+  .watercolor-bg{
+    position:relative;
+    background:
+      radial-gradient(ellipse 55% 45% at 12% 15%, rgba(247,181,141,0.45), transparent 65%),
+      radial-gradient(ellipse 50% 48% at 88% 12%, rgba(230,140,166,0.4), transparent 65%),
+      radial-gradient(ellipse 55% 50% at 85% 88%, rgba(150,200,175,0.35), transparent 65%),
+      radial-gradient(ellipse 52% 48% at 14% 90%, rgba(203,175,230,0.35), transparent 65%),
+      radial-gradient(ellipse 60% 55% at 50% 50%, rgba(255,225,205,0.5), transparent 68%),
+      #fffaf6;
+  }
+  .watercolor-bg::after{
+    content:'';
+    position:absolute; inset:0; border-radius:18px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity:0.05; mix-blend-mode:multiply; pointer-events:none;
+  }
+  .cal-nav{display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:14px; position:relative; z-index:2;}
+  .cal-nav h2{font-family:'Pinyon Script', cursive; font-size:44px; font-weight:400; color:var(--maroon); line-height:1;}
+  .nav-btns{display:flex; gap:8px;}
+  .icon-btn{
+    width:34px; height:34px; border-radius:50%; border:1px solid var(--line);
+    background:#fff9f7; color:var(--rose-deep); font-size:16px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover{background:var(--line);}
+
+  .calendar-table{
+    position:relative; z-index:2; background:#fffefd; border-radius:10px;
+    border:1px solid var(--check-line); overflow:hidden;
+    box-shadow:0 10px 26px rgba(109,33,64,0.14);
+  }
+  .weekdays{
+    display:grid; grid-template-columns:repeat(7,1fr); text-align:center;
+    background:var(--banner-pink); margin-bottom:0;
+  }
+  .weekdays span{
+    font-family:'Playfair Display', serif; font-size:13px; font-weight:600;
+    color:#fff; letter-spacing:0.5px; padding:10px 4px; display:block;
+  }
+  @media(max-width:640px){
+    .weekdays span{font-size:10.5px; padding:8px 2px;}
+    .cal-nav h2{font-size:32px;}
+  }
+
+  .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:0;}
+  .day-cell{
+    min-height:96px; border-radius:0; border:1px solid #f2dbe2;
+    background:#fffefd; padding:7px; cursor:pointer; display:flex; flex-direction:column;
+    gap:5px; transition:background .12s ease;
+  }
+  .day-cell:hover{background:#fff5f7;}
+  .day-cell.empty{background:#fbeff1; border-color:#f2dbe2; cursor:default;}
+  .day-cell .num{font-family:'Playfair Display', serif; font-weight:600; font-size:14px; color:var(--maroon);}
+  .day-cell.today .num{
+    background:var(--rose); color:#fff; width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+  }
+  .dots-row{display:flex; flex-wrap:wrap; gap:3px;}
+  .mini-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .shift-row{display:flex; flex-direction:column; gap:2px; margin-top:1px;}
+  .shift-chip{display:flex; align-items:center; gap:4px; font-size:9.5px; color:var(--plum-soft); line-height:1.2;}
+  .shift-chip .mini-dot{margin-top:1px;}
+  .shift-chip .txt{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  .zone-toggle{display:flex; gap:6px; background:#fbeff1; border-radius:14px; padding:4px; margin-bottom:14px;}
+  .zone-btn{
+    flex:1; text-align:center; padding:8px 10px; border-radius:10px; border:none; cursor:pointer;
+    font-family:inherit; font-weight:700; font-size:13px; background:transparent; color:var(--plum-soft);
+  }
+  .zone-btn.active{background:var(--rose); color:#fff; box-shadow:0 3px 8px rgba(162,90,120,0.25);}
+  .zone-hint{font-size:12px; color:var(--plum-soft); margin:-6px 0 14px; line-height:1.4; text-align:center;}
+  .badges{display:flex; gap:5px; margin-top:auto;}
+  .badge{font-size:10.5px; padding:1px 5px; border-radius:6px; font-weight:700;}
+  .badge.off{background:#f2eee9; color:#9a8b7a;}
+  .badge.invoice{background:#fbeecb; color:#a9781b;}
+  .badge.note{background:#e9efe4; color:var(--leaf-deep);}
+  .note-assignee-dots{display:flex; gap:2px; align-items:center;}
+  .note-assignee-dots .a-dot{width:7px; height:7px; border-radius:50%;}
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(74,46,57,0.35); display:flex;
+    align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  .overlay.hidden{display:none;}
+  .modal{
+    background:var(--card); border-radius:20px; padding:26px; max-width:560px; width:100%;
+    max-height:88vh; overflow-y:auto; box-shadow:0 20px 60px rgba(74,46,57,0.3);
+    border:1px solid var(--line);
+  }
+  .modal h2{font-size:21px; color:var(--rose-deep); margin-bottom:2px;}
+  .modal .modal-sub{font-size:12.5px; color:var(--plum-soft); margin-bottom:16px;}
+  .field-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:14px 0 6px;}
+  .field-row label{font-weight:700; font-size:14px;}
+
+  .assignee-chips{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:6px;}
+  .assignee-chip{
+    display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:16px;
+    border:1.5px solid var(--line); background:#fff; cursor:pointer; font-family:inherit;
+    font-size:13px; font-weight:600; color:var(--plum-soft); transition:all .12s ease;
+  }
+  .assignee-chip .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  .assignee-chip.active{color:#fff; border-color:transparent;}
+  .assignee-hint{font-size:11.5px; color:var(--plum-soft); margin-bottom:2px; font-style:italic;}
+  .no-va-msg{font-size:12.5px; color:var(--plum-soft); font-style:italic;}
+  .toggle{
+    position:relative; width:42px; height:24px; border-radius:14px; background:#eadfe1;
+    cursor:pointer; transition:background .15s;
+  }
+  .toggle.on{background:var(--rose);}
+  .toggle .knob{
+    position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%;
+    background:#fff; transition:left .15s; box-shadow:0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle.on .knob{left:20px;}
+
+  textarea{
+    width:100%; border-radius:12px; border:1px solid var(--line); padding:10px 12px;
+    font-family:inherit; font-size:14px; resize:vertical; min-height:64px; background:#fffefd;
+  }
+
+  /* rich text notes editor */
+  .rt-toolbar{
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+    background:#fff6f4; border:1px solid var(--line); border-bottom:none;
+    border-radius:10px 10px 0 0; padding:7px 8px;
+  }
+  .rt-toolbar.rt-color-row{border-top:none; border-bottom:none; border-radius:0; padding-top:6px;}
+  .rt-btn{
+    width:30px; height:28px; border-radius:7px; border:1px solid transparent; background:transparent;
+    color:var(--plum); font-family:inherit; font-size:13px; cursor:pointer; display:flex;
+    align-items:center; justify-content:center;
+  }
+  .rt-btn:hover{background:#fbe3e8; border-color:var(--dusty);}
+  .rt-btn.active{background:var(--rose); color:#fff;}
+  .rt-emoji-btn{font-size:16px;}
+  .rt-sep{width:1px; align-self:stretch; background:var(--line); margin:0 2px;}
+  .rt-select{
+    border:1px solid var(--line); border-radius:7px; padding:4px 6px; font-family:inherit;
+    font-size:12.5px; background:#fff; color:var(--plum); cursor:pointer;
+  }
+  .rt-color-label{font-size:11.5px; color:var(--plum-soft); font-weight:700; margin-right:2px;}
+  .rt-swatches{display:flex; gap:4px;}
+  .rt-swatch{
+    width:18px; height:18px; border-radius:50%; cursor:pointer; border:1.5px solid rgba(0,0,0,0.08);
+    padding:0;
+  }
+  .rt-custom-swatch{
+    width:18px; height:18px; border-radius:50%; cursor:pointer; position:relative; overflow:hidden;
+    border:1.5px dashed var(--plum-soft);
+    background:conic-gradient(red,orange,yellow,green,blue,violet,red);
+  }
+  .rt-custom-swatch input[type=color]{
+    position:absolute; inset:-4px; width:200%; height:200%; opacity:0; cursor:pointer; border:none; padding:0;
+  }
+  .notes-editor{
+    width:100%; min-height:90px; max-height:220px; overflow-y:auto;
+    border:1px solid var(--line); border-left-width:4px; border-radius:0 0 12px 12px; padding:10px 12px;
+    font-family:inherit; font-size:14px; background:#fffefd; line-height:1.5;
+    transition:border-left-color .15s ease, background .15s ease;
+  }
+  .notes-editor:focus{outline:none; border-color:var(--dusty);}
+  .notes-editor:empty:before{content:attr(data-placeholder); color:var(--plum-soft); opacity:0.7;}
+  .notes-editor img.note-sticker{height:26px; vertical-align:middle; margin:0 1px;}
+  .notes-editor ul{margin:4px 0 4px 20px; padding:0;}
+
+  .emoji-panel{
+    margin-top:8px; border:1px solid var(--line); border-radius:12px; background:#fff;
+    padding:10px; box-shadow:var(--shadow);
+  }
+  .emoji-panel.hidden{display:none;}
+  .emoji-tabs{display:flex; gap:6px; margin-bottom:8px;}
+  .emoji-tab{
+    border:none; background:#fbeff1; color:var(--plum-soft); font-family:inherit; font-weight:700;
+    font-size:12.5px; padding:5px 12px; border-radius:8px; cursor:pointer;
+  }
+  .emoji-tab.active{background:var(--rose); color:#fff;}
+  .emoji-grid{
+    display:grid; grid-template-columns:repeat(8,1fr); gap:4px; max-height:140px; overflow-y:auto;
+  }
+  .emoji-grid.hidden{display:none;}
+  .emoji-grid button{
+    border:none; background:transparent; font-size:19px; cursor:pointer; border-radius:7px;
+    padding:4px; display:flex; align-items:center; justify-content:center;
+  }
+  .emoji-grid button:hover{background:#fbe3e8;}
+  .emoji-grid button img{width:24px; height:24px;}
+
+  .va-schedule-row{
+    border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-top:10px;
+    background:#fffaf8;
+  }
+  .va-schedule-row .row-top{display:flex; align-items:center; justify-content:space-between;}
+  .va-name-tag{display:flex; align-items:center; gap:8px; font-weight:700; font-size:14.5px;}
+  .time-inputs{display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .time-inputs input[type=time]{
+    padding:6px 8px; border-radius:8px; border:1px solid var(--line); font-family:inherit; font-size:13px;
+  }
+  .ph-preview{font-size:12.5px; color:var(--leaf-deep); margin-top:7px; font-weight:600;}
+  .off-note{font-size:12.5px; color:var(--plum-soft); font-style:italic; margin-top:8px;}
+
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:22px;}
+
+  .flower{position:absolute; opacity:0.9; pointer-events:none;}
+
+  .invite-field-label{font-weight:700; font-size:12.5px; color:var(--plum-soft); display:block; margin:12px 0 5px;}
+  .invite-field-row{display:flex; gap:8px; align-items:center;}
+  .invite-field-row-textarea{align-items:flex-start;}
+  .invite-field-row input, .invite-field-row textarea{
+    flex:1; border:1px solid var(--line); border-radius:9px; padding:8px 10px;
+    font-family:inherit; font-size:13px; background:#fff9f7; color:var(--plum); resize:vertical;
+  }
+  .btn-sm{padding:7px 12px; font-size:12.5px; white-space:nowrap;}
+
+  .save-flash{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+    background:var(--leaf-deep); color:#fff; padding:8px 18px; border-radius:20px;
+    font-size:13px; font-weight:600; opacity:0; transition:opacity .3s; z-index:60;
+  }
+  .save-flash.show{opacity:1;}
+  .save-flash.flash-error{background:#b5495e; max-width:280px; text-align:center; line-height:1.3;}
+</style>
+</head>
+<body>
+
+<svg class="corner-floral tl" width="170" height="170" viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#c25a7c" opacity="0.5"><ellipse cx="45" cy="35" rx="16" ry="24"/><ellipse cx="45" cy="75" rx="16" ry="24"/><ellipse cx="20" cy="55" rx="24" ry="16"/><ellipse cx="70" cy="55" rx="24" ry="16"/></g>
+  <circle cx="45" cy="55" r="13" fill="#d9a441" opacity="0.7"/>
+  <g fill="#8ea37e" opacity="0.45"><ellipse cx="95" cy="115" rx="9" ry="16" transform="rotate(20 95 115)"/><ellipse cx="115" cy="100" rx="9" ry="16" transform="rotate(-30 115 100)"/></g>
+  <g fill="#ecb9c7" opacity="0.6"><ellipse cx="120" cy="30" rx="9" ry="13"/><ellipse cx="120" cy="52" rx="9" ry="13"/><ellipse cx="109" cy="41" rx="13" ry="9"/><ellipse cx="131" cy="41" rx="13" ry="9"/></g>
+  <circle cx="120" cy="41" r="7" fill="#d9a441" opacity="0.6"/>
+</svg>
+<svg class="corner-floral br" width="190" height="190" viewBox="0 0 190 190" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#c25a7c" opacity="0.45"><ellipse cx="130" cy="120" rx="18" ry="27"/><ellipse cx="130" cy="164" rx="18" ry="27"/><ellipse cx="103" cy="142" rx="27" ry="18"/><ellipse cx="157" cy="142" rx="27" ry="18"/></g>
+  <circle cx="130" cy="142" r="14" fill="#d9a441" opacity="0.65"/>
+  <g fill="#8ea37e" opacity="0.4"><ellipse cx="60" cy="90" rx="10" ry="18" transform="rotate(35 60 90)"/><ellipse cx="80" cy="70" rx="10" ry="18" transform="rotate(-15 80 70)"/></g>
+  <g fill="#ecb9c7" opacity="0.55"><ellipse cx="45" cy="150" rx="10" ry="14"/><ellipse cx="45" cy="174" rx="10" ry="14"/><ellipse cx="33" cy="162" rx="14" ry="10"/><ellipse cx="57" cy="162" rx="14" ry="10"/></g>
+  <circle cx="45" cy="162" r="7.5" fill="#d9a441" opacity="0.6"/>
+</svg>
+
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo-badge" title="Replace with Physician's Choice logo file">
+        <span class="initials">PC</span>
+      </div>
+      <div class="brand-text">
+        <div class="company">PHYSICIAN'S CHOICE</div>
+        <h1>VA Team Calendar</h1>
+        <div class="sub">Shifts, days off &amp; invoice dates for the whole team</div>
+      </div>
+    </div>
+    <div class="clocks">
+      <div class="clock">
+        <div class="zone">EASTERN TIME</div>
+        <div class="time" id="clockET">--:--</div>
+        <div class="date" id="dateET">-</div>
+      </div>
+      <div class="clock">
+        <div class="zone">PHILIPPINE TIME</div>
+        <div class="time" id="clockPH">--:--</div>
+        <div class="date" id="datePH">-</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel sidebar">
+      <h3>Your VAs</h3>
+      <div id="vaEmptyHint" class="empty-hint">No VAs added yet. Add your team below to start scheduling.</div>
+      <div class="va-list" id="vaList"></div>
+
+      <button class="btn btn-outline" id="addVaBtn" style="width:100%;">+ Add a VA</button>
+      <div class="add-va-form" id="addVaForm">
+        <input type="text" id="vaNameInput" placeholder="VA's name" maxlength="30"/>
+        <input type="email" id="vaEmailInput" placeholder="Email (optional, for invites)" maxlength="80"/>
+        <div class="swatches" id="swatchRow"></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-primary" id="saveVaBtn" style="flex:1;">Add</button>
+          <button class="btn btn-ghost" id="cancelVaBtn">Cancel</button>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div><span class="swatch-sm"></span> Colored dot = VA working that day</div>
+        <div><span class="badge off" style="padding:1px 5px;">off</span> Someone's off</div>
+        <div><span class="badge invoice" style="padding:1px 5px;">$</span> Invoice due</div>
+        <div><span class="badge note" style="padding:1px 5px;">note</span> Has a note</div>
+      </div>
+
+      <div class="invite-link-row">
+        <label>Calendar link (paste once you've shared this file)</label>
+        <input type="text" id="calendarLinkInput" placeholder="https://..."/>
+        <div class="hint">Add each VA's email above, then use the ✉️ button on their name to open an email invite with this link included.</div>
+      </div>
+    </aside>
+
+    <section class="panel calendar-panel watercolor-bg">
+      <svg class="calendar-corner cf-tl" id="cornerTL" width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg"></svg>
+      <svg class="calendar-corner cf-tr" id="cornerTR" width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg"></svg>
+      <svg class="calendar-corner cf-bl" id="cornerBL" width="170" height="170" viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg"></svg>
+      <svg class="calendar-corner cf-br" id="cornerBR" width="170" height="170" viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <div class="zone-toggle">
+        <button class="zone-btn active" id="zoneBtnET">🇺🇸 US Schedule &middot; Eastern Time</button>
+        <button class="zone-btn" id="zoneBtnPH">🇵🇭 Philippines Schedule &middot; Manila Time</button>
+      </div>
+      <div class="zone-hint" id="zoneHint">Shifts are entered in Eastern Time. Switch tabs to see the same calendar converted to Manila time.</div>
+      <div class="cal-nav">
+        <button class="icon-btn" id="prevMonth">&#8592;</button>
+        <h2 id="monthLabel">Month Year</h2>
+        <div class="nav-btns">
+          <button class="icon-btn" id="todayBtn" title="Today" style="width:auto; padding:0 12px; border-radius:17px; font-size:12.5px; font-weight:700;">Today</button>
+          <button class="icon-btn" id="nextMonth">&#8594;</button>
+        </div>
+      </div>
+      <div class="calendar-table">
+        <div class="weekdays">
+          <span>Sunday</span><span>Monday</span><span>Tuesday</span><span>Wednesday</span><span>Thursday</span><span>Friday</span><span>Saturday</span>
+        </div>
+        <div class="grid" id="calGrid"></div>
+      </div>
+    </section>
+  </div>
+</div>
+<style>
+  .calendar-corner{position:absolute; z-index:1; pointer-events:none;}
+  .cf-tl{top:-18px; left:-18px;}
+  .cf-tr{top:-18px; right:-18px;}
+  .cf-bl{bottom:-18px; left:-18px;}
+  .cf-br{bottom:-22px; right:-22px;}
+  @media(max-width:820px){ .calendar-corner{width:70px; height:70px;} }
+</style>
+
+<div class="overlay hidden" id="dayOverlay">
+  <div class="modal" id="dayModal">
+    <h2 id="modalDate">Day</h2>
+    <div class="modal-sub">Set schedules, mark days off, flag invoice dates and leave notes.</div>
+
+    <div class="field-row">
+      <label>Invoice due today</label>
+      <div class="toggle" id="invoiceToggle"><div class="knob"></div></div>
+    </div>
+
+    <label style="font-weight:700; font-size:14px; display:block; margin:14px 0 6px;">Assign note to</label>
+    <div class="assignee-chips" id="assigneeChips"></div>
+    <div class="assignee-hint" id="assigneeHint">Tap a name so their note is highlighted in their color — a quick way for each VA to spot what's theirs.</div>
+
+    <label style="font-weight:700; font-size:14px; display:block; margin:14px 0 6px;">Notes</label>
+    <div class="rt-toolbar">
+      <button type="button" class="rt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+      <button type="button" class="rt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+      <button type="button" class="rt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+      <span class="rt-sep"></span>
+      <select id="fontSizeSelect" class="rt-select" title="Text size">
+        <option value="2">Small</option>
+        <option value="3" selected>Normal</option>
+        <option value="5">Large</option>
+        <option value="7">X-Large</option>
+      </select>
+      <span class="rt-sep"></span>
+      <button type="button" class="rt-btn" data-cmd="insertUnorderedList" title="Bullet list">&#8226;&#8801;</button>
+      <span class="rt-sep"></span>
+      <button type="button" class="rt-btn rt-emoji-btn" id="emojiToggleBtn" title="Add stickers &amp; emoji">😊</button>
+    </div>
+    <div class="rt-toolbar rt-color-row">
+      <span class="rt-color-label">Text</span>
+      <div class="rt-swatches" id="textColorSwatches"></div>
+      <label class="rt-custom-swatch" title="Custom text color">
+        <input type="color" id="textColorInput" value="#4a2e39"/>
+      </label>
+      <span class="rt-sep"></span>
+      <span class="rt-color-label">Highlight</span>
+      <div class="rt-swatches" id="highlightColorSwatches"></div>
+      <label class="rt-custom-swatch" title="Custom highlight color">
+        <input type="color" id="highlightColorInput" value="#fff2a8"/>
+      </label>
+    </div>
+    <div id="notesArea" class="notes-editor" contenteditable="true" data-placeholder="Anything the team should know about this day..."></div>
+    <div class="emoji-panel hidden" id="emojiPanel">
+      <div class="emoji-tabs">
+        <button type="button" class="emoji-tab active" data-tab="emoji">Emoji</button>
+        <button type="button" class="emoji-tab" data-tab="stickers">Stickers</button>
+      </div>
+      <div class="emoji-grid" id="emojiGrid"></div>
+      <div class="emoji-grid hidden" id="stickerGrid"></div>
+    </div>
+
+    <div id="vaScheduleList"></div>
+    <div id="noVaMsg" class="off-note" style="display:none;">Add a VA from the sidebar first to set their schedule.</div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeModalBtn">Cancel</button>
+      <button class="btn btn-primary" id="saveDayBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="inviteOverlay">
+  <div class="modal" id="inviteModal" style="max-width:460px;">
+    <h2 id="inviteModalName">Invite</h2>
+    <div class="modal-sub">Copy each part into your email app, or try opening it directly below.</div>
+
+    <label class="invite-field-label">To</label>
+    <div class="invite-field-row">
+      <input type="text" id="inviteToField" readonly/>
+      <button type="button" class="btn btn-outline btn-sm" onclick="copyInviteField('inviteToField', this)">Copy</button>
+    </div>
+
+    <label class="invite-field-label">Subject</label>
+    <div class="invite-field-row">
+      <input type="text" id="inviteSubjectField" readonly/>
+      <button type="button" class="btn btn-outline btn-sm" onclick="copyInviteField('inviteSubjectField', this)">Copy</button>
+    </div>
+
+    <label class="invite-field-label">Message</label>
+    <div class="invite-field-row invite-field-row-textarea">
+      <textarea id="inviteBodyField" readonly rows="7"></textarea>
+      <button type="button" class="btn btn-outline btn-sm" onclick="copyInviteField('inviteBodyField', this)">Copy</button>
+    </div>
+
+    <div class="modal-actions" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline btn-sm" id="inviteGmailBtn">Open in Gmail</button>
+        <a id="inviteMailtoLink" href="#" class="btn btn-ghost" style="text-decoration:none;">Try my default email app</a>
+      </div>
+      <button class="btn btn-primary" onclick="$('inviteOverlay').classList.add('hidden')">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="save-flash" id="saveFlash">Saved ✓</div>
+
+<script>
+// =====================================================================
+// FIREBASE SETUP — paste your config from the Firebase console below.
+// Leave as-is (with "YOUR_API_KEY") while testing inside Claude — the
+// app will automatically use Claude's built-in storage instead.
+// Once you paste real values here, this file works anywhere it's
+// hosted (Google Sites, Netlify, etc.) with live shared sync.
+// =====================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyC0Bu4yGFtPi3ZoxRHAOwxnPl5qVEgSKwg",
+  authDomain: "pc-affiliate-calendar-8d504.firebaseapp.com",
+  databaseURL: "https://pc-affiliate-calendar-8d504-default-rtdb.firebaseio.com",
+  projectId: "pc-affiliate-calendar-8d504",
+  storageBucket: "pc-affiliate-calendar-8d504.firebasestorage.app",
+  messagingSenderId: "898502298145",
+  appId: "1:898502298145:web:39a9d3ac684c71e42ef160"
+};
+const FIREBASE_CONFIGURED = firebaseConfig.apiKey !== "YOUR_API_KEY";
+let firebaseDb = null;
+if(FIREBASE_CONFIGURED && typeof firebase !== 'undefined'){
+  firebase.initializeApp(firebaseConfig);
+  firebaseDb = firebase.database();
+}
+const USE_FIREBASE = !!firebaseDb;
+const USE_CLAUDE_STORAGE = !USE_FIREBASE && typeof window.storage !== 'undefined';
+// =====================================================================
+
+const COLORS = ['#c25a7c', '#8ea37e', '#d9a441', '#8a7fc2', '#5fa3b8', '#c47a4a'];
+const STORAGE_KEY = 'calendar-data';
+const ET_ZONE = 'America/New_York';
+const PH_ZONE = 'Asia/Manila';
+
+let state = { vas: [], entries: {}, calendarLink: '' };
+let viewYear, viewMonth; // 0-indexed month
+let selectedDateStr = null;
+let pendingColor = COLORS[0];
+let saveTimer = null;
+let suppressNextRemoteRender = false;
+let activeZone = 'ET'; // 'ET' or 'PH' - which calendar is currently on screen
+
+const $ = (id) => document.getElementById(id);
+
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function dateKey(y,m,d){
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+// ---------- storage ----------
+function applyLoadedData(parsed){
+  if(!parsed) return;
+  state.vas = parsed.vas || [];
+  state.entries = parsed.entries || {};
+  state.calendarLink = parsed.calendarLink || '';
+}
+
+async function loadState(){
+  if(USE_FIREBASE){
+    try{
+      const snap = await firebaseDb.ref(STORAGE_KEY).once('value');
+      applyLoadedData(snap.val());
+    }catch(e){
+      console.error('Firebase load error', e);
+    }
+    // live updates from teammates, without needing a page refresh
+    firebaseDb.ref(STORAGE_KEY).on('value', (snap) => {
+      if(suppressNextRemoteRender){ suppressNextRemoteRender = false; return; }
+      applyLoadedData(snap.val());
+      renderVaList();
+      renderCalendar();
+      if(document.activeElement !== $('calendarLinkInput')) $('calendarLinkInput').value = state.calendarLink || '';
+    });
+    return;
+  }
+  if(USE_CLAUDE_STORAGE){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, true);
+      if(res && res.value) applyLoadedData(JSON.parse(res.value));
+    }catch(e){
+      console.log('No existing data yet, starting fresh.');
+    }
+    return;
+  }
+  console.warn('No storage backend configured — changes will not be saved. Add your Firebase config at the top of the script.');
+}
+
+function queueSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 400);
+}
+
+async function saveState(retryCount){
+  retryCount = retryCount || 0;
+  if(USE_FIREBASE){
+    try{
+      suppressNextRemoteRender = true;
+      await firebaseDb.ref(STORAGE_KEY).set(state);
+      flashSaved();
+    }catch(e){
+      console.error('Firebase save error', e);
+      suppressNextRemoteRender = false;
+      if(retryCount < 2){ setTimeout(() => saveState(retryCount + 1), 800); }
+      else flashError();
+    }
+    return;
+  }
+  if(USE_CLAUDE_STORAGE){
+    try{
+      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(state), true);
+      if(result) flashSaved();
+      else if(retryCount < 2){ setTimeout(() => saveState(retryCount + 1), 800); }
+      else flashError();
+    }catch(e){
+      console.error('Storage error', e);
+      if(retryCount < 2){ setTimeout(() => saveState(retryCount + 1), 800); }
+      else flashError();
+    }
+    return;
+  }
+  console.warn('No storage backend configured — this change was not saved.');
+}
+
+function flashSaved(){
+  const el = $('saveFlash');
+  el.textContent = 'Saved ✓';
+  el.classList.remove('flash-error');
+  el.classList.add('show');
+  setTimeout(()=> el.classList.remove('show'), 1200);
+}
+
+function flashError(){
+  const el = $('saveFlash');
+  el.textContent = "Couldn't save — check your connection and try again";
+  el.classList.add('show', 'flash-error');
+  setTimeout(()=> { el.classList.remove('show'); el.classList.remove('flash-error'); }, 3200);
+}
+
+// ---------- clocks ----------
+function updateClocks(){
+  const now = new Date();
+  const fmtTime = (tz) => now.toLocaleTimeString('en-US', {timeZone:tz, hour:'numeric', minute:'2-digit'});
+  const fmtDate = (tz) => now.toLocaleDateString('en-US', {timeZone:tz, weekday:'short', month:'short', day:'numeric'});
+  $('clockET').textContent = fmtTime(ET_ZONE);
+  $('dateET').textContent = fmtDate(ET_ZONE);
+  $('clockPH').textContent = fmtTime(PH_ZONE);
+  $('datePH').textContent = fmtDate(PH_ZONE);
+}
+setInterval(updateClocks, 1000);
+
+// ---------- timezone conversion for a specific scheduled time ----------
+function tzOffsetMinutes(timeZone, date){
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone, hour12:false, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+  const parts = dtf.formatToParts(date).reduce((acc,p)=>{ acc[p.type]=p.value; return acc; },{});
+  const hour = parts.hour === '24' ? '00' : parts.hour;
+  const asUTC = Date.UTC(+parts.year, +parts.month-1, +parts.day, +hour, +parts.minute, +parts.second);
+  return (asUTC - date.getTime()) / 60000;
+}
+
+// core conversion: ET wall-clock "HH:MM" on dateStr (YYYY-MM-DD) -> {timeLabel, dayShift, h24, m}
+function convertEtToPhRaw(dateStr, hhmm){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const [hh,mm] = hhmm.split(':').map(Number);
+  const refDate = new Date(Date.UTC(y, m-1, d, 12, 0, 0)); // noon UTC ref, just for offset lookup
+  const etOffset = tzOffsetMinutes(ET_ZONE, refDate);
+  const phOffset = tzOffsetMinutes(PH_ZONE, refDate);
+  const diffMinutes = phOffset - etOffset;
+  let totalMin = hh*60 + mm + diffMinutes;
+  let dayShift = 0;
+  while(totalMin < 0){ totalMin += 1440; dayShift -= 1; }
+  while(totalMin >= 1440){ totalMin -= 1440; dayShift += 1; }
+  const outH = Math.floor(totalMin/60);
+  const outM = totalMin % 60;
+  const period = outH >= 12 ? 'PM' : 'AM';
+  let h12 = outH % 12; if(h12 === 0) h12 = 12;
+  const timeLabel = `${h12}:${String(outM).padStart(2,'0')} ${period}`;
+  return { timeLabel, dayShift, h24: outH, m: outM };
+}
+
+// convert an ET wall-clock "HH:MM" on dateStr to a PH display string with day-shift note
+function etToPh(dateStr, hhmm){
+  const r = convertEtToPhRaw(dateStr, hhmm);
+  const dayLabel = r.dayShift === 0 ? '' : (r.dayShift > 0 ? ' (+1 day)' : ' (-1 day)');
+  return r.timeLabel + dayLabel;
+}
+
+function formatEtLabel(hhmm){
+  const [hh,mm] = hhmm.split(':').map(Number);
+  const period = hh >= 12 ? 'PM' : 'AM';
+  let h12 = hh % 12; if(h12 === 0) h12 = 12;
+  return `${h12}:${String(mm).padStart(2,'0')} ${period}`;
+}
+
+// ---------- VA sidebar ----------
+function renderSwatches(){
+  const row = $('swatchRow');
+  row.innerHTML = '';
+  COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (c === pendingColor ? ' selected' : '');
+    sw.style.background = c;
+    sw.onclick = () => { pendingColor = c; renderSwatches(); };
+    row.appendChild(sw);
+  });
+}
+
+function renderVaList(){
+  const list = $('vaList');
+  list.innerHTML = '';
+  $('vaEmptyHint').style.display = state.vas.length ? 'none' : 'block';
+  state.vas.forEach(va => {
+    const chip = document.createElement('div');
+    chip.className = 'va-chip';
+    chip.innerHTML = `
+      <span class="va-dot" style="background:${va.color}"></span>
+      <span class="name">${escapeHtml(va.name)}</span>
+      ${va.email ? `<button class="invite-btn" title="Email invite to ${escapeHtml(va.email)}">&#9993;&#65039;</button>` : ''}
+      <button title="Remove ${escapeHtml(va.name)}">&times;</button>
+      ${va.email ? `<span class="email">${escapeHtml(va.email)}</span>` : ''}
+    `;
+    const buttons = chip.querySelectorAll('button');
+    if(va.email){
+      buttons[0].onclick = () => sendInviteEmail(va);
+      buttons[1].onclick = () => removeVa(va.id);
+    } else {
+      buttons[0].onclick = () => removeVa(va.id);
+    }
+    list.appendChild(chip);
+  });
+}
+
+function sendInviteEmail(va){
+  const link = ($('calendarLinkInput').value || '').trim();
+  const linkLine = link ? link : '[paste the calendar link here]';
+  const subjectText = "You're on the Physician's Choice VA Team Calendar";
+  const bodyText = `Hi ${va.name},\n\nYou've been added to the Physician's Choice VA Team Calendar, where you can see your shifts, days off, and invoice dates in both US Eastern and Manila time.\n\nHere's the link:\n${linkLine}\n\nLet me know if you have any trouble viewing it.\n\nThanks!`;
+
+  $('inviteModalName').textContent = `Invite ${va.name}`;
+  $('inviteToField').value = va.email;
+  $('inviteSubjectField').value = subjectText;
+  $('inviteBodyField').value = bodyText;
+  $('inviteMailtoLink').href = `mailto:${encodeURIComponent(va.email)}?subject=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
+  $('inviteGmailBtn').onclick = () => {
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(va.email)}&su=${encodeURIComponent(subjectText)}&body=${encodeURIComponent(bodyText)}`;
+    window.open(gmailUrl, '_blank');
+  };
+  $('inviteOverlay').classList.remove('hidden');
+}
+
+function copyInviteField(inputId, btn){
+  const el = $(inputId);
+  el.select();
+  el.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(el.value).then(() => {
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = original; }, 1400);
+  }).catch(() => {
+    document.execCommand('copy');
+  });
+}
+
+function removeVa(id){
+  state.vas = state.vas.filter(v => v.id !== id);
+  Object.values(state.entries).forEach(e => { if(e.vaSchedules) delete e.vaSchedules[id]; });
+  queueSave();
+  renderVaList();
+  renderCalendar();
+}
+
+// ---------- rich text notes: helpers, toolbar, emoji/sticker picker ----------
+function hasVisibleNoteContent(html){
+  if(!html) return false;
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  if(div.textContent && div.textContent.trim().length > 0) return true;
+  if(div.querySelector('img')) return true;
+  return false;
+}
+
+let notesSavedRange = null;
+function saveNotesSelection(){
+  const sel = window.getSelection();
+  const notesEl = $('notesArea');
+  if(sel.rangeCount > 0 && notesEl.contains(sel.anchorNode)){
+    notesSavedRange = sel.getRangeAt(0).cloneRange();
+  }
+}
+function restoreNotesSelection(){
+  const notesEl = $('notesArea');
+  notesEl.focus();
+  if(notesSavedRange){
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(notesSavedRange);
+  }
+}
+function applyNotesCmd(cmd, val){
+  restoreNotesSelection();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand(cmd, false, val);
+  saveNotesSelection();
+}
+
+const TEXT_COLOR_PRESETS = ['#4a2e39', '#a43f63', '#c25a7c', '#6f8760', '#d9a441', '#2f2f2f'];
+const HIGHLIGHT_COLOR_PRESETS = ['#fff2a8', '#ffd7e0', '#d5f0d1', '#dfe0ff', '#ffe0c2'];
+
+const EMOJI_LIST = [
+  '😊','😀','😍','🥳','🤗','😉','😴','🤔','👍','👎','🙏','🙌','💪','✅','❌','❗',
+  '📌','📝','📅','⏰','💰','💵','📩','✈️','☕','💤','🎉','🎂','✨','🔥','⭐','🌟',
+  '❤️','💖','💕','🌸','🌷','🌻','🌿','☀️','🌙','🌈','🚩','📣','👏','🥰','😢','😅'
+];
+
+function svgDataUri(svg){ return 'data:image/svg+xml,' + encodeURIComponent(svg); }
+function hydrateStickers(container){
+  container.querySelectorAll('img.note-sticker[data-sticker]').forEach(img => {
+    const st = STICKERS.find(s => s.name === img.getAttribute('data-sticker'));
+    if(st && !img.getAttribute('src')) img.src = svgDataUri(st.svg);
+  });
+}
+function serializeNotesForStorage(){
+  const clone = $('notesArea').cloneNode(true);
+  clone.querySelectorAll('img.note-sticker').forEach(img => img.removeAttribute('src'));
+  return clone.innerHTML;
+}
+const STICKERS = [
+  { name:'tulip', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path d="M20 30 Q17 22 19 16" stroke="#7fa06b" stroke-width="2.5" fill="none"/><g transform="translate(20,14)"><path d="M0,0 C-6,-1 -8,-8 -6,-13 C-4,-16 -1,-15 -2,-9 C-3,-3 1,1 4,-3 C7,-8 6,-14 3,-16 C6,-16 10,-11 8,-6 C6,-1 3,1 0,0 Z" fill="#e589a4" transform="rotate(-18)"/><path d="M0,0 C-6,-1 -8,-8 -6,-13 C-4,-16 -1,-15 -2,-9 C-3,-3 1,1 4,-3 C7,-8 6,-14 3,-16 C6,-16 10,-11 8,-6 C6,-1 3,1 0,0 Z" fill="#e589a4" transform="rotate(18)"/><path d="M0,0 C-6,-1 -8,-8 -6,-13 C-4,-16 -1,-15 -2,-9 C-3,-3 1,1 4,-3 C7,-8 6,-14 3,-16 C6,-16 10,-11 8,-6 C6,-1 3,1 0,0 Z" fill="#f4bdcd"/></g></svg>` },
+  { name:'heart', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path d="M20 32 C4 22 4 10 14 8 C18 7 20 12 20 12 C20 12 22 7 26 8 C36 10 36 22 20 32 Z" fill="#e589a4"/></svg>` },
+  { name:'star', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path d="M20 4 L24 15 L36 15 L26 22 L30 34 L20 27 L10 34 L14 22 L4 15 L16 15 Z" fill="#d9a441"/></svg>` },
+  { name:'check', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#8ea37e"/><path d="M12 20 L18 26 L29 13" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  { name:'flag', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><line x1="12" y1="6" x2="12" y2="35" stroke="#8a7a80" stroke-width="2.5"/><path d="M12 8 L30 12 L12 20 Z" fill="#c25a7c"/></svg>` },
+  { name:'coffee', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path d="M9 15 h18 v11 a9 9 0 0 1 -18 0 Z" fill="#c47a4a"/><path d="M27 17 h4 a4 4 0 0 1 0 8 h-3" fill="none" stroke="#c47a4a" stroke-width="2.5"/><path d="M13 5 Q15 9 13 11" stroke="#c47a4a" stroke-width="2" fill="none"/><path d="M19 5 Q21 9 19 11" stroke="#c47a4a" stroke-width="2" fill="none"/></svg>` },
+  { name:'money', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="#d9a441"/><text x="20" y="26" font-size="17" font-family="Georgia,serif" text-anchor="middle" fill="#fff">$</text></svg>` },
+  { name:'clock', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="#fff" stroke="#c25a7c" stroke-width="2.5"/><line x1="20" y1="20" x2="20" y2="10" stroke="#4a2e39" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="20" x2="27" y2="23" stroke="#4a2e39" stroke-width="2" stroke-linecap="round"/></svg>` }
+];
+
+function buildRichTextUI(){
+  const notesEl = $('notesArea');
+  notesEl.addEventListener('mouseup', saveNotesSelection);
+  notesEl.addEventListener('keyup', saveNotesSelection);
+
+  document.querySelectorAll('.rt-btn[data-cmd]').forEach(btn => {
+    btn.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd(btn.dataset.cmd); });
+  });
+
+  $('fontSizeSelect').addEventListener('mousedown', saveNotesSelection);
+  $('fontSizeSelect').addEventListener('change', () => applyNotesCmd('fontSize', $('fontSizeSelect').value));
+
+  const textSwatchWrap = $('textColorSwatches');
+  TEXT_COLOR_PRESETS.forEach(c => {
+    const sw = document.createElement('button');
+    sw.type = 'button'; sw.className = 'rt-swatch'; sw.style.background = c;
+    sw.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd('foreColor', c); });
+    textSwatchWrap.appendChild(sw);
+  });
+  $('textColorInput').addEventListener('mousedown', saveNotesSelection);
+  $('textColorInput').addEventListener('input', () => applyNotesCmd('foreColor', $('textColorInput').value));
+
+  const hlSwatchWrap = $('highlightColorSwatches');
+  HIGHLIGHT_COLOR_PRESETS.forEach(c => {
+    const sw = document.createElement('button');
+    sw.type = 'button'; sw.className = 'rt-swatch'; sw.style.background = c;
+    sw.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd('hiliteColor', c); });
+    hlSwatchWrap.appendChild(sw);
+  });
+  $('highlightColorInput').addEventListener('mousedown', saveNotesSelection);
+  $('highlightColorInput').addEventListener('input', () => applyNotesCmd('hiliteColor', $('highlightColorInput').value));
+
+  const emojiGrid = $('emojiGrid');
+  EMOJI_LIST.forEach(em => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = em;
+    b.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd('insertText', em); });
+    emojiGrid.appendChild(b);
+  });
+
+  const stickerGrid = $('stickerGrid');
+  STICKERS.forEach(st => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.title = st.name;
+    const img = document.createElement('img');
+    img.src = svgDataUri(st.svg);
+    b.appendChild(img);
+    b.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      restoreNotesSelection();
+      document.execCommand('insertHTML', false, `<img class="note-sticker" data-sticker="${st.name}" alt="${st.name}"/>`);
+      hydrateStickers($('notesArea'));
+      saveNotesSelection();
+    });
+    stickerGrid.appendChild(b);
+  });
+
+  $('emojiToggleBtn').addEventListener('mousedown', (e) => { e.preventDefault(); saveNotesSelection(); });
+  $('emojiToggleBtn').addEventListener('click', () => { $('emojiPanel').classList.toggle('hidden'); });
+
+  document.querySelectorAll('.emoji-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const showEmoji = tab.dataset.tab === 'emoji';
+      $('emojiGrid').classList.toggle('hidden', !showEmoji);
+      $('stickerGrid').classList.toggle('hidden', showEmoji);
+    });
+  });
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+$('addVaBtn').onclick = () => {
+  pendingColor = COLORS[state.vas.length % COLORS.length];
+  renderSwatches();
+  $('addVaForm').classList.add('open');
+  $('vaNameInput').focus();
+};
+$('cancelVaBtn').onclick = () => {
+  $('addVaForm').classList.remove('open');
+  $('vaNameInput').value = '';
+  $('vaEmailInput').value = '';
+};
+$('saveVaBtn').onclick = () => {
+  const name = $('vaNameInput').value.trim();
+  if(!name) return;
+  const email = $('vaEmailInput').value.trim();
+  state.vas.push({ id: 'va_' + Date.now(), name, email, color: pendingColor });
+  $('vaNameInput').value = '';
+  $('vaEmailInput').value = '';
+  $('addVaForm').classList.remove('open');
+  queueSave();
+  renderVaList();
+  renderCalendar();
+};
+
+// ---------- calendar rendering ----------
+function renderMonthLabel(){
+  const label = new Date(viewYear, viewMonth, 1).toLocaleDateString('en-US', {month:'long', year:'numeric'});
+  $('monthLabel').textContent = label;
+}
+
+function renderCalendar(){
+  renderMonthLabel();
+  const grid = $('calGrid');
+  grid.innerHTML = '';
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const tStr = todayStr();
+
+  for(let i=0;i<firstDay;i++){
+    const filler = document.createElement('div');
+    filler.className = 'day-cell empty';
+    grid.appendChild(filler);
+  }
+
+  for(let d=1; d<=daysInMonth; d++){
+    const key = dateKey(viewYear, viewMonth, d);
+    const entry = state.entries[key];
+    const cell = document.createElement('div');
+    cell.className = 'day-cell' + (key === tStr ? ' today' : '');
+
+    const num = document.createElement('div');
+    num.className = 'num';
+    num.textContent = d;
+    cell.appendChild(num);
+
+    const shiftRow = document.createElement('div');
+    shiftRow.className = 'shift-row';
+    let anyOff = false, hasNote = false, invoice = false;
+    if(entry){
+      invoice = !!entry.invoiceDue;
+      hasNote = hasVisibleNoteContent(entry.notes);
+      if(entry.vaSchedules){
+        state.vas.forEach(va => {
+          const sched = entry.vaSchedules[va.id];
+          if(sched){
+            if(sched.off){ anyOff = true; }
+            else {
+              const start = sched.start || '09:00';
+              const end = sched.end || '17:00';
+              const chip = document.createElement('div');
+              chip.className = 'shift-chip';
+              const dot = document.createElement('span');
+              dot.className = 'mini-dot';
+              dot.style.background = va.color;
+              const txt = document.createElement('span');
+              txt.className = 'txt';
+              if(activeZone === 'ET'){
+                txt.textContent = `${va.name.split(' ')[0]} ${formatEtLabel(start)}\u2013${formatEtLabel(end)}`;
+                chip.title = `${va.name}: ${formatEtLabel(start)} \u2013 ${formatEtLabel(end)} ET`;
+              } else {
+                const phStart = convertEtToPhRaw(key, start);
+                const phEnd = convertEtToPhRaw(key, end);
+                const startSuffix = phStart.dayShift !== 0 ? ' +1d' : '';
+                const endSuffix = phEnd.dayShift !== 0 ? ' +1d' : '';
+                txt.textContent = `${va.name.split(' ')[0]} ${phStart.timeLabel}${startSuffix}\u2013${phEnd.timeLabel}${endSuffix}`;
+                chip.title = `${va.name}: ${phStart.timeLabel}${startSuffix} \u2013 ${phEnd.timeLabel}${endSuffix} PHT (converted from ${formatEtLabel(start)}\u2013${formatEtLabel(end)} ET)`;
+              }
+              chip.appendChild(dot);
+              chip.appendChild(txt);
+              shiftRow.appendChild(chip);
+            }
+          }
+        });
+      }
+    }
+    cell.appendChild(shiftRow);
+
+    const badges = document.createElement('div');
+    badges.className = 'badges';
+    if(anyOff){ const b=document.createElement('span'); b.className='badge off'; b.textContent='off'; badges.appendChild(b); }
+    if(invoice){ const b=document.createElement('span'); b.className='badge invoice'; b.textContent='$'; badges.appendChild(b); }
+    if(hasNote){
+      const b=document.createElement('span'); b.className='badge note'; b.textContent='note'; badges.appendChild(b);
+      const assignees = (entry && entry.noteAssignees) || [];
+      if(assignees.length){
+        const dotsWrap = document.createElement('span');
+        dotsWrap.className = 'note-assignee-dots';
+        assignees.forEach(id => {
+          const va = state.vas.find(v => v.id === id);
+          if(va){
+            const d = document.createElement('span');
+            d.className = 'a-dot';
+            d.style.background = va.color;
+            d.title = va.name;
+            dotsWrap.appendChild(d);
+          }
+        });
+        badges.appendChild(dotsWrap);
+      }
+    }
+    cell.appendChild(badges);
+
+    cell.onclick = () => openDayModal(key);
+    grid.appendChild(cell);
+  }
+}
+
+$('zoneBtnET').onclick = () => {
+  activeZone = 'ET';
+  $('zoneBtnET').classList.add('active');
+  $('zoneBtnPH').classList.remove('active');
+  $('zoneHint').textContent = 'Shifts are entered in Eastern Time. Switch tabs to see the same calendar converted to Manila time.';
+  renderCalendar();
+};
+$('zoneBtnPH').onclick = () => {
+  activeZone = 'PH';
+  $('zoneBtnPH').classList.add('active');
+  $('zoneBtnET').classList.remove('active');
+  $('zoneHint').textContent = 'Same schedule, shown in Manila time. "+1d" means that time falls on the next calendar day in the Philippines.';
+  renderCalendar();
+};
+
+$('prevMonth').onclick = () => { viewMonth--; if(viewMonth<0){viewMonth=11; viewYear--;} renderCalendar(); };
+$('nextMonth').onclick = () => { viewMonth++; if(viewMonth>11){viewMonth=0; viewYear++;} renderCalendar(); };
+$('todayBtn').onclick = () => { const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); renderCalendar(); };
+
+// ---------- day modal ----------
+function renderAssigneeChips(selectedIds){
+  const wrap = $('assigneeChips');
+  wrap.innerHTML = '';
+  if(!state.vas.length){
+    wrap.innerHTML = '<div class="no-va-msg">Add a VA from the sidebar to assign notes to them.</div>';
+    $('assigneeHint').style.display = 'none';
+    return;
+  }
+  $('assigneeHint').style.display = 'block';
+  state.vas.forEach(va => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'assignee-chip' + (selectedIds.includes(va.id) ? ' active' : '');
+    chip.dataset.vaId = va.id;
+    if(selectedIds.includes(va.id)) chip.style.background = va.color;
+    chip.innerHTML = `<span class="dot" style="background:${selectedIds.includes(va.id) ? '#fff' : va.color}"></span>${escapeHtml(va.name)}`;
+    chip.onclick = () => {
+      chip.classList.toggle('active');
+      const isActive = chip.classList.contains('active');
+      chip.style.background = isActive ? va.color : '';
+      chip.querySelector('.dot').style.background = isActive ? '#fff' : va.color;
+      updateNotesHighlight();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+function getSelectedAssigneeIds(){
+  return Array.from(document.querySelectorAll('#assigneeChips .assignee-chip.active')).map(c => c.dataset.vaId);
+}
+
+function updateNotesHighlight(){
+  const ids = getSelectedAssigneeIds();
+  const notesEl = $('notesArea');
+  if(!ids.length){
+    notesEl.style.borderLeftColor = 'var(--line)';
+    notesEl.style.background = '#fffefd';
+    return;
+  }
+  const colors = ids.map(id => {
+    const va = state.vas.find(v => v.id === id);
+    return va ? va.color : '#ccc';
+  });
+  notesEl.style.borderLeftColor = colors[0];
+  notesEl.style.background = colors.length === 1 ? colors[0] + '14' : '#fff7f4';
+}
+
+function openDayModal(dateStr){
+  selectedDateStr = dateStr;
+  const entry = state.entries[dateStr] || { notes:'', invoiceDue:false, vaSchedules:{}, noteAssignees:[] };
+  const niceDate = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  $('modalDate').textContent = niceDate;
+  $('emojiPanel').classList.add('hidden');
+  $('notesArea').innerHTML = entry.notes || '';
+  hydrateStickers($('notesArea'));
+
+  renderAssigneeChips(entry.noteAssignees || []);
+  updateNotesHighlight();
+
+  const invoiceToggle = $('invoiceToggle');
+  invoiceToggle.classList.toggle('on', !!entry.invoiceDue);
+  invoiceToggle.onclick = () => invoiceToggle.classList.toggle('on');
+
+  const list = $('vaScheduleList');
+  list.innerHTML = '';
+  $('noVaMsg').style.display = state.vas.length ? 'none' : 'block';
+
+  state.vas.forEach(va => {
+    const sched = (entry.vaSchedules && entry.vaSchedules[va.id]) || { off:false, start:'09:00', end:'17:00' };
+    const row = document.createElement('div');
+    row.className = 'va-schedule-row';
+    row.dataset.vaId = va.id;
+    row.innerHTML = `
+      <div class="row-top">
+        <div class="va-name-tag"><span class="va-dot" style="background:${va.color}"></span>${escapeHtml(va.name)}</div>
+        <div class="toggle off-toggle ${sched.off ? 'on' : ''}"><div class="knob"></div></div>
+      </div>
+      <div class="time-inputs">
+        <span style="font-size:12.5px; color:var(--plum-soft);">ET</span>
+        <input type="time" class="start-input" value="${sched.start || '09:00'}"/>
+        <span style="font-size:12.5px; color:var(--plum-soft);">to</span>
+        <input type="time" class="end-input" value="${sched.end || '17:00'}"/>
+      </div>
+      <div class="ph-preview"></div>
+      <div class="off-note" style="display:none;">Marked as a day off — no shift scheduled.</div>
+    `;
+    const offToggle = row.querySelector('.off-toggle');
+    const timeInputs = row.querySelector('.time-inputs');
+    const phPreview = row.querySelector('.ph-preview');
+    const offNote = row.querySelector('.off-note');
+    const startInput = row.querySelector('.start-input');
+    const endInput = row.querySelector('.end-input');
+
+    function refreshPreview(){
+      const isOff = offToggle.classList.contains('on');
+      timeInputs.style.display = isOff ? 'none' : 'flex';
+      phPreview.style.display = isOff ? 'none' : 'block';
+      offNote.style.display = isOff ? 'block' : 'none';
+      if(!isOff){
+        const phStart = etToPh(dateStr, startInput.value || '09:00');
+        const phEnd = etToPh(dateStr, endInput.value || '17:00');
+        phPreview.textContent = `= ${phStart} – ${phEnd} PHT`;
+      }
+    }
+    offToggle.onclick = () => { offToggle.classList.toggle('on'); refreshPreview(); };
+    startInput.onchange = refreshPreview;
+    endInput.onchange = refreshPreview;
+    refreshPreview();
+
+    list.appendChild(row);
+  });
+
+  $('dayOverlay').classList.remove('hidden');
+}
+
+$('closeModalBtn').onclick = () => $('dayOverlay').classList.add('hidden');
+$('dayOverlay').onclick = (e) => { if(e.target === $('dayOverlay')) $('dayOverlay').classList.add('hidden'); };
+
+$('saveDayBtn').onclick = () => {
+  const entry = state.entries[selectedDateStr] || { notes:'', invoiceDue:false, vaSchedules:{} };
+  entry.notes = serializeNotesForStorage();
+  entry.noteAssignees = getSelectedAssigneeIds();
+  entry.invoiceDue = $('invoiceToggle').classList.contains('on');
+  entry.vaSchedules = entry.vaSchedules || {};
+
+  document.querySelectorAll('#vaScheduleList .va-schedule-row').forEach(row => {
+    const vaId = row.dataset.vaId;
+    const isOff = row.querySelector('.off-toggle').classList.contains('on');
+    entry.vaSchedules[vaId] = {
+      off: isOff,
+      start: row.querySelector('.start-input').value,
+      end: row.querySelector('.end-input').value
+    };
+  });
+
+  state.entries[selectedDateStr] = entry;
+  queueSave();
+  renderCalendar();
+  $('dayOverlay').classList.add('hidden');
+};
+
+// ---------- painterly floral corner illustrations ----------
+function petalPath(len, wid){
+  return `M0,0 C ${-wid},${(-len*0.28).toFixed(1)} ${(-wid*0.9).toFixed(1)},${(-len*0.75).toFixed(1)} 0,${-len} `+
+         `C ${(wid*0.9).toFixed(1)},${(-len*0.75).toFixed(1)} ${wid},${(-len*0.28).toFixed(1)} 0,0 Z`;
+}
+function petalRing(count, len, wid, color, opacity, offsetDeg){
+  let s = '';
+  for(let i=0;i<count;i++){
+    const angle = (offsetDeg||0) + i * (360/count);
+    s += `<path d="${petalPath(len,wid)}" fill="${color}" opacity="${opacity}" transform="rotate(${angle.toFixed(1)})"/>`;
+  }
+  return s;
+}
+function centerCluster(r, color){
+  let s='';
+  const n = 7;
+  for(let i=0;i<n;i++){
+    const a = i*(360/n) * Math.PI/180;
+    const cx = Math.cos(a)*r*0.5, cy = Math.sin(a)*r*0.5;
+    s += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(r*0.26).toFixed(1)}" fill="${color}"/>`;
+  }
+  s += `<circle cx="0" cy="0" r="${(r*0.32).toFixed(1)}" fill="${color}"/>`;
+  return s;
+}
+function peonyBloom(cx, cy, scale, rotate, palette){
+  return `<g transform="translate(${cx},${cy}) rotate(${rotate||0}) scale(${scale})">
+      ${petalRing(8, 30, 12, palette.outer, 0.95, 0)}
+      ${petalRing(7, 21, 9, palette.mid, 1, 14)}
+      ${petalRing(6, 13, 6.5, palette.inner, 1, 8)}
+      ${centerCluster(7, palette.center)}
+    </g>`;
+}
+function tulipBloom(cx, cy, scale, rotate, palette){
+  return `<g transform="translate(${cx},${cy}) rotate(${rotate||0}) scale(${scale})">
+      <path d="${petalPath(30,13)}" fill="${palette.back}" opacity="0.95" transform="rotate(-24)"/>
+      <path d="${petalPath(30,13)}" fill="${palette.back}" opacity="0.95" transform="rotate(24)"/>
+      <path d="${petalPath(33,11)}" fill="${palette.front}"/>
+      <path d="M-4,-2 L4,-2 L3,-9 L-3,-9 Z" fill="${palette.shadow}" opacity="0.55"/>
+    </g>`;
+}
+function leafShape(cx, cy, len, wid, rotateDeg, color){
+  return `<g transform="translate(${cx},${cy}) rotate(${rotateDeg})">
+    <path d="M0,0 C ${-wid},${(-len*0.3).toFixed(1)} ${(-wid*0.7).toFixed(1)},${(-len*0.8).toFixed(1)} 0,${-len}
+             C ${(wid*0.7).toFixed(1)},${(-len*0.8).toFixed(1)} ${wid},${(-len*0.3).toFixed(1)} 0,0 Z" fill="${color}"/>
+    <line x1="0" y1="-2" x2="0" y2="${-len*0.88}" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+  </g>`;
+}
+function stemCurve(x1,y1,cx,cy,x2,y2,color){
+  return `<path d="M${x1},${y1} Q${cx},${cy} ${x2},${y2}" stroke="${color}" stroke-width="2.5" fill="none" opacity="0.85" stroke-linecap="round"/>`;
+}
+
+const FLORAL_PALETTES = {
+  coral: {outer:'#f7b48c', mid:'#f2946a', inner:'#df6a3d', center:'#f3c14c'},
+  pink:  {outer:'#f4bdcd', mid:'#e589a4', inner:'#c85f83', center:'#f3c14c'},
+  blush: {outer:'#fbd7c9', mid:'#f4ab8f', inner:'#e07f59', center:'#f3c14c'}
+};
+const TULIP_PALETTES = {
+  coral: {back:'#df6a3d', front:'#f7b48c', shadow:'#c85631'},
+  pink:  {back:'#e589a4', front:'#f4bdcd', shadow:'#c85f83'},
+  peach: {back:'#f2946a', front:'#fbd7c9', shadow:'#df6a3d'},
+  gold:  {back:'#dba33a', front:'#f7d98a', shadow:'#c98f2a'}
+};
+const LEAF_GREEN = '#7fa06b', LEAF_GREEN_DEEP = '#5f7f4c';
+
+function renderFloralCorners(){
+  const tl = document.getElementById('cornerTL');
+  const tr = document.getElementById('cornerTR');
+  const bl = document.getElementById('cornerBL');
+  const br = document.getElementById('cornerBR');
+  if(!tl) return;
+
+  tl.innerHTML = `
+    ${stemCurve(30,60,15,95,45,120,LEAF_GREEN_DEEP)}
+    ${leafShape(22,78,26,11,-35,LEAF_GREEN)}
+    ${leafShape(48,100,22,10,25,LEAF_GREEN_DEEP)}
+    ${tulipBloom(40,42,1.25,-8,TULIP_PALETTES.coral)}
+    ${tulipBloom(88,26,0.62,10,TULIP_PALETTES.pink)}
+  `;
+  tr.innerHTML = `
+    ${stemCurve(120,60,135,95,105,120,LEAF_GREEN_DEEP)}
+    ${leafShape(128,78,26,11,35,LEAF_GREEN)}
+    ${leafShape(102,100,22,10,-25,LEAF_GREEN_DEEP)}
+    ${tulipBloom(110,42,1.25,8,TULIP_PALETTES.coral)}
+    ${tulipBloom(62,26,0.62,-10,TULIP_PALETTES.pink)}
+  `;
+  bl.innerHTML = `
+    ${stemCurve(30,150,20,110,55,80,LEAF_GREEN_DEEP)}
+    ${leafShape(24,120,28,12,-20,LEAF_GREEN)}
+    ${leafShape(70,95,24,11,40,LEAF_GREEN_DEEP)}
+    ${leafShape(105,55,20,9,60,LEAF_GREEN)}
+    ${tulipBloom(42,128,1.45,-10,TULIP_PALETTES.peach)}
+    ${tulipBloom(100,72,0.8,15,TULIP_PALETTES.coral)}
+    ${tulipBloom(122,45,0.5,-5,TULIP_PALETTES.pink)}
+  `;
+  br.innerHTML = `
+    ${stemCurve(140,150,150,110,115,80,LEAF_GREEN_DEEP)}
+    ${leafShape(146,120,28,12,20,LEAF_GREEN)}
+    ${leafShape(100,95,24,11,-40,LEAF_GREEN_DEEP)}
+    ${leafShape(65,55,20,9,-60,LEAF_GREEN)}
+    ${tulipBloom(128,128,1.45,10,TULIP_PALETTES.peach)}
+    ${tulipBloom(70,72,0.8,-15,TULIP_PALETTES.coral)}
+    ${tulipBloom(48,45,0.5,5,TULIP_PALETTES.pink)}
+  `;
+}
+
+// ---------- init ----------
+async function init(){
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth();
+  updateClocks();
+  renderFloralCorners();
+  buildRichTextUI();
+  await loadState();
+  renderVaList();
+  renderCalendar();
+  $('calendarLinkInput').value = state.calendarLink || '';
+  $('calendarLinkInput').addEventListener('change', () => {
+    state.calendarLink = $('calendarLinkInput').value.trim();
+    queueSave();
+  });
+}
+init();
+</script>
+</body>
+</html>
