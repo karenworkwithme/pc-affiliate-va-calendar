@@ -592,11 +592,12 @@
       <div class="toggle" id="invoiceToggle"><div class="knob"></div></div>
     </div>
 
-    <label style="font-weight:700; font-size:14px; display:block; margin:14px 0 6px;">Assign note to</label>
-    <div class="assignee-chips" id="assigneeChips"></div>
-    <div class="assignee-hint" id="assigneeHint">Tap a name so their note is highlighted in their color — a quick way for each VA to spot what's theirs.</div>
+    <label style="font-weight:700; font-size:14px; display:block; margin:14px 0 6px;">Notes for</label>
+    <select id="notesVaSelect" class="rt-select hidden" style="width:100%; padding:9px 10px; font-size:14px;"></select>
+    <div class="off-note" id="notesForLockedLabel" style="display:none; font-weight:700; font-style:normal; color:var(--plum);"></div>
+    <div class="off-note" id="notesNoVaMsg" style="display:none;">Click a VA's name in the sidebar to view their notes for this day.</div>
 
-    <div class="field-row" style="margin:14px 0 6px;">
+    <div class="field-row" id="notesFieldRow" style="margin:14px 0 6px;">
       <label style="font-weight:700; font-size:14px;">Notes</label>
       <button type="button" class="btn btn-ghost" id="clearNoteBtn" style="font-size:12.5px; padding:4px 8px;">🗑 Clear note</button>
     </div>
@@ -931,6 +932,23 @@ function applyLoadedData(parsed){
   state.calendarLink = parsed.calendarLink || '';
   state.timeOffRequests = parsed.timeOffRequests || [];
   state.mgmtEvents = parsed.mgmtEvents || {};
+  migrateSharedNotesToPerVa();
+}
+
+// one-time migration: older data stored one shared note per day with a list of
+// assignees. Convert that into a separate note per VA so edits never collide.
+function migrateSharedNotesToPerVa(){
+  Object.values(state.entries).forEach(entry => {
+    if(!entry) return;
+    if(!entry.vaNotes) entry.vaNotes = {};
+    if(entry.notes && entry.noteAssignees && entry.noteAssignees.length){
+      entry.noteAssignees.forEach(vaId => {
+        if(!entry.vaNotes[vaId]) entry.vaNotes[vaId] = entry.notes;
+      });
+    }
+    delete entry.notes;
+    delete entry.noteAssignees;
+  });
 }
 
 async function loadState(){
@@ -1347,16 +1365,11 @@ function buildRichTextUI(){
 
   $('clearNoteBtn').addEventListener('click', () => {
     if(!isAdminUnlocked) return;
+    if(!activeNotesVaId) return;
     if(!hasVisibleNoteContent($('notesArea').innerHTML)) return;
-    if(!confirm('Delete this note? This clears the text and any stickers for this day.')) return;
+    if(!confirm('Delete this note? This clears the text and any stickers for this day (only for the VA currently selected).')) return;
     $('notesArea').innerHTML = '';
-    document.querySelectorAll('#assigneeChips .assignee-chip.active').forEach(chip => {
-      chip.classList.remove('active');
-      chip.style.background = '';
-      const vaId = chip.dataset.vaId;
-      const va = state.vas.find(v => v.id === vaId);
-      chip.querySelector('.dot').style.background = va ? va.color : '#ccc';
-    });
+    dayNotesDraft[activeNotesVaId] = '';
     updateNotesHighlight();
   });
 }
@@ -1425,10 +1438,11 @@ function renderCalendar(){
 
     const shiftRow = document.createElement('div');
     shiftRow.className = 'shift-row';
-    let anyOff = false, hasNote = false, invoice = false;
+    let anyOff = false, invoice = false;
+    const vaNotesForDay = (entry && entry.vaNotes) || {};
+    const vaIdsWithNotes = state.vas.filter(va => hasVisibleNoteContent(vaNotesForDay[va.id])).map(va => va.id);
     if(entry){
       invoice = !!entry.invoiceDue;
-      hasNote = hasVisibleNoteContent(entry.notes);
       if(entry.vaSchedules){
         state.vas.forEach(va => {
           const sched = entry.vaSchedules[va.id];
@@ -1470,29 +1484,27 @@ function renderCalendar(){
     badges.className = 'badges';
     if(anyOff){ const b=document.createElement('span'); b.className='badge off'; b.textContent='off'; badges.appendChild(b); }
     if(invoice){ const b=document.createElement('span'); b.className='badge invoice'; b.textContent='$'; badges.appendChild(b); }
-    const noteAssignees = (entry && entry.noteAssignees) || [];
-    const noteMatchesFilter = !noteFilterVaId || noteAssignees.includes(noteFilterVaId);
-    if(hasNote && noteMatchesFilter){
+    const noteMatchesFilter = noteFilterVaId ? vaIdsWithNotes.includes(noteFilterVaId) : vaIdsWithNotes.length > 0;
+    if(noteMatchesFilter){
+      const visibleVaIds = noteFilterVaId ? [noteFilterVaId] : vaIdsWithNotes;
       const b=document.createElement('span'); b.className='badge note'; b.textContent='note'; badges.appendChild(b);
-      if(noteAssignees.length){
-        const dotsWrap = document.createElement('span');
-        dotsWrap.className = 'note-assignee-dots';
-        noteAssignees.forEach(id => {
-          const va = state.vas.find(v => v.id === id);
-          if(va){
-            const d = document.createElement('span');
-            d.className = 'a-dot';
-            d.style.background = va.color;
-            d.title = va.name;
-            dotsWrap.appendChild(d);
-          }
-        });
-        badges.appendChild(dotsWrap);
-      }
+      const dotsWrap = document.createElement('span');
+      dotsWrap.className = 'note-assignee-dots';
+      visibleVaIds.forEach(id => {
+        const va = state.vas.find(v => v.id === id);
+        if(va){
+          const d = document.createElement('span');
+          d.className = 'a-dot';
+          d.style.background = va.color;
+          d.title = va.name;
+          dotsWrap.appendChild(d);
+        }
+      });
+      badges.appendChild(dotsWrap);
     }
     cell.appendChild(badges);
 
-    if(noteFilterVaId && hasNote && noteMatchesFilter){
+    if(noteFilterVaId && noteMatchesFilter){
       cell.classList.add('filtered-note');
     }
 
@@ -1667,65 +1679,81 @@ $('nextMonth').onclick = () => { viewMonth++; if(viewMonth>11){viewMonth=0; view
 $('todayBtn').onclick = () => { const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); renderCurrentView(); };
 
 // ---------- day modal ----------
-function renderAssigneeChips(selectedIds){
-  const wrap = $('assigneeChips');
-  wrap.innerHTML = '';
-  if(!state.vas.length){
-    wrap.innerHTML = '<div class="no-va-msg">Add a VA from the sidebar to assign notes to them.</div>';
-    $('assigneeHint').style.display = 'none';
-    return;
-  }
-  $('assigneeHint').style.display = 'block';
-  state.vas.forEach(va => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'assignee-chip' + (selectedIds.includes(va.id) ? ' active' : '');
-    chip.dataset.vaId = va.id;
-    if(selectedIds.includes(va.id)) chip.style.background = va.color;
-    chip.innerHTML = `<span class="dot" style="background:${selectedIds.includes(va.id) ? '#fff' : va.color}"></span>${escapeHtml(va.name)}`;
-    chip.onclick = () => {
-      if(!isAdminUnlocked) return;
-      chip.classList.toggle('active');
-      const isActive = chip.classList.contains('active');
-      chip.style.background = isActive ? va.color : '';
-      chip.querySelector('.dot').style.background = isActive ? '#fff' : va.color;
-      updateNotesHighlight();
-    };
-    wrap.appendChild(chip);
-  });
-}
+let dayNotesDraft = {};
+let activeNotesVaId = null;
 
-function getSelectedAssigneeIds(){
-  return Array.from(document.querySelectorAll('#assigneeChips .assignee-chip.active')).map(c => c.dataset.vaId);
+function loadNotesForActiveVa(){
+  const html = (activeNotesVaId && dayNotesDraft[activeNotesVaId]) || '';
+  $('notesArea').innerHTML = html;
+  hydrateStickers($('notesArea'));
+  updateNotesHighlight();
 }
 
 function updateNotesHighlight(){
-  const ids = getSelectedAssigneeIds();
   const notesEl = $('notesArea');
-  if(!ids.length){
+  const va = activeNotesVaId ? state.vas.find(v => v.id === activeNotesVaId) : null;
+  if(!va){
     notesEl.style.borderLeftColor = 'var(--line)';
     notesEl.style.background = '#fffefd';
     return;
   }
-  const colors = ids.map(id => {
-    const va = state.vas.find(v => v.id === id);
-    return va ? va.color : '#ccc';
-  });
-  notesEl.style.borderLeftColor = colors[0];
-  notesEl.style.background = colors.length === 1 ? colors[0] + '14' : '#fff7f4';
+  notesEl.style.borderLeftColor = va.color;
+  notesEl.style.background = va.color + '14';
 }
+
+function switchActiveNotesVa(newVaId){
+  if(activeNotesVaId) dayNotesDraft[activeNotesVaId] = serializeNotesForStorage();
+  activeNotesVaId = newVaId;
+  loadNotesForActiveVa();
+}
+
+function setupNotesForVaSelector(entry){
+  dayNotesDraft = {};
+  state.vas.forEach(va => { dayNotesDraft[va.id] = (entry.vaNotes && entry.vaNotes[va.id]) || ''; });
+
+  const select = $('notesVaSelect');
+  const lockedLabel = $('notesForLockedLabel');
+  const noVaMsg = $('notesNoVaMsg');
+  const fieldRow = $('notesFieldRow');
+  const rtWrap = $('notesRTWrap');
+  select.classList.add('hidden');
+  lockedLabel.style.display = 'none';
+  noVaMsg.style.display = 'none';
+
+  const filteredVa = noteFilterVaId ? state.vas.find(v => v.id === noteFilterVaId) : null;
+
+  if(filteredVa){
+    activeNotesVaId = filteredVa.id;
+    lockedLabel.style.display = 'block';
+    lockedLabel.innerHTML = `<span class="va-dot" style="background:${filteredVa.color}"></span> ${escapeHtml(filteredVa.name)}`;
+    fieldRow.style.display = '';
+    rtWrap.style.display = '';
+    loadNotesForActiveVa();
+  } else if(isAdminUnlocked && state.vas.length){
+    select.classList.remove('hidden');
+    select.innerHTML = state.vas.map(va => `<option value="${va.id}">${escapeHtml(va.name)}</option>`).join('');
+    activeNotesVaId = state.vas[0].id;
+    select.value = activeNotesVaId;
+    fieldRow.style.display = '';
+    rtWrap.style.display = '';
+    loadNotesForActiveVa();
+  } else {
+    activeNotesVaId = null;
+    noVaMsg.style.display = 'block';
+    fieldRow.style.display = 'none';
+    rtWrap.style.display = 'none';
+  }
+}
+$('notesVaSelect').addEventListener('change', () => switchActiveNotesVa($('notesVaSelect').value));
 
 function openDayModal(dateStr){
   selectedDateStr = dateStr;
-  const entry = state.entries[dateStr] || { notes:'', invoiceDue:false, vaSchedules:{}, noteAssignees:[] };
+  const entry = state.entries[dateStr] || { vaNotes:{}, invoiceDue:false, vaSchedules:{} };
   const niceDate = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
   $('modalDate').textContent = niceDate;
   $('emojiPanel').classList.add('hidden');
-  $('notesArea').innerHTML = entry.notes || '';
-  hydrateStickers($('notesArea'));
 
-  renderAssigneeChips(entry.noteAssignees || []);
-  updateNotesHighlight();
+  setupNotesForVaSelector(entry);
 
   const invoiceToggle = $('invoiceToggle');
   invoiceToggle.classList.toggle('on', !!entry.invoiceDue);
@@ -1788,7 +1816,7 @@ function openDayModal(dateStr){
 function setDayModalEditable(editable){
   $('viewOnlyBanner').classList.toggle('hidden', editable);
   $('notesArea').contentEditable = editable ? 'true' : 'false';
-  document.querySelectorAll('.rt-btn, #fontSizeSelect, .rt-swatch, .rt-custom-swatch input[type=color], #clearNoteBtn').forEach(el => {
+  document.querySelectorAll('#notesRTWrap .rt-btn, #fontSizeSelect, #notesRTWrap .rt-swatch, #notesRTWrap .rt-custom-swatch input[type=color], #clearNoteBtn').forEach(el => {
     el.disabled = !editable;
     el.style.opacity = editable ? '' : '0.5';
     el.style.pointerEvents = editable ? '' : 'none';
@@ -1800,9 +1828,12 @@ $('closeModalBtn').onclick = () => $('dayOverlay').classList.add('hidden');
 $('dayOverlay').onclick = (e) => { if(e.target === $('dayOverlay')) $('dayOverlay').classList.add('hidden'); };
 
 $('saveDayBtn').onclick = () => {
-  const entry = state.entries[selectedDateStr] || { notes:'', invoiceDue:false, vaSchedules:{} };
-  entry.notes = serializeNotesForStorage();
-  entry.noteAssignees = getSelectedAssigneeIds();
+  const entry = state.entries[selectedDateStr] || { vaNotes:{}, invoiceDue:false, vaSchedules:{} };
+  if(activeNotesVaId) dayNotesDraft[activeNotesVaId] = serializeNotesForStorage();
+  entry.vaNotes = entry.vaNotes || {};
+  Object.keys(dayNotesDraft).forEach(vaId => { entry.vaNotes[vaId] = dayNotesDraft[vaId]; });
+  delete entry.notes;
+  delete entry.noteAssignees;
   entry.invoiceDue = $('invoiceToggle').classList.contains('on');
   entry.vaSchedules = entry.vaSchedules || {};
 
@@ -2100,7 +2131,7 @@ function applyApprovedTimeOff(req){
   const end = new Date(req.endDate + 'T00:00:00');
   for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)){
     const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
-    const entry = state.entries[key] || { notes:'', invoiceDue:false, vaSchedules:{}, noteAssignees:[] };
+    const entry = state.entries[key] || { vaNotes:{}, invoiceDue:false, vaSchedules:{} };
     entry.vaSchedules = entry.vaSchedules || {};
     entry.vaSchedules[req.vaId] = { off:true, start:'09:00', end:'17:00' };
     state.entries[key] = entry;
@@ -2265,7 +2296,7 @@ $('applyWeeklyScheduleBtn').onclick = () => {
     const dow = cursor.getDay();
     const dayPattern = pattern[dow];
     const key = dateKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
-    const entry = state.entries[key] || { notes:'', invoiceDue:false, vaSchedules:{}, noteAssignees:[] };
+    const entry = state.entries[key] || { vaNotes:{}, invoiceDue:false, vaSchedules:{} };
     entry.vaSchedules = entry.vaSchedules || {};
     entry.vaSchedules[vaId] = { off: dayPattern.off, start: dayPattern.start, end: dayPattern.end };
     state.entries[key] = entry;
