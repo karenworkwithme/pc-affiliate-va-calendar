@@ -625,9 +625,15 @@
 <div class="overlay hidden" id="adminSigninOverlay">
   <div class="modal" style="max-width:400px;">
     <h2>Admin sign-in</h2>
-    <div class="modal-sub">Enter the admin password or an admin email to unlock editing for this calendar. Everyone else sees a view-only calendar where the only action is requesting time off.</div>
-    <input type="text" id="adminSigninEmail" placeholder="Password or admin email" list="adminEmailSuggestions" autocomplete="off" style="width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit; margin-top:6px;"/>
+    <div class="modal-sub">Enter the admin email, then the password, to unlock editing for this calendar. Everyone else sees a view-only calendar where the only action is requesting time off.</div>
+
+    <label class="invite-field-label">Admin email</label>
+    <input type="text" id="adminSigninEmail" placeholder="Admin email" list="adminEmailSuggestions" autocomplete="off" style="width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
     <datalist id="adminEmailSuggestions"></datalist>
+
+    <label class="invite-field-label" style="margin-top:12px;">Password</label>
+    <input type="password" id="adminSigninPassword" placeholder="Admin password" autocomplete="off" style="width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" id="closeAdminSigninBtn">Cancel</button>
       <button class="btn btn-primary" id="submitAdminSigninBtn">Unlock</button>
@@ -1681,6 +1687,7 @@ $('adminToggleBtn').onclick = () => {
     renderTimeOffList();
   } else {
     $('adminSigninEmail').value = '';
+    $('adminSigninPassword').value = '';
     populateAdminSuggestions();
     $('adminSigninOverlay').classList.remove('hidden');
     setTimeout(() => $('adminSigninEmail').focus(), 50);
@@ -1696,19 +1703,25 @@ function populateAdminSuggestions(){
 }
 
 $('submitAdminSigninBtn').onclick = () => {
-  const val = ($('adminSigninEmail').value || '').trim().toLowerCase();
-  const isPasswordMatch = val === ADMIN_PASSWORD.toLowerCase();
-  const isEmailMatch = ADMIN_EMAILS.some(e => e.toLowerCase() === val);
-  if(isPasswordMatch || isEmailMatch){
+  const emailVal = ($('adminSigninEmail').value || '').trim().toLowerCase();
+  const passwordVal = ($('adminSigninPassword').value || '').trim();
+  const isEmailMatch = ADMIN_EMAILS.some(e => e.toLowerCase() === emailVal);
+  const isPasswordMatch = passwordVal === ADMIN_PASSWORD;
+  if(isEmailMatch && isPasswordMatch){
     isAdminUnlocked = true;
     $('adminSigninOverlay').classList.add('hidden');
     refreshAdminUI();
     renderTimeOffList();
+  } else if(!isEmailMatch){
+    alert("That email doesn't match an admin email for this calendar.");
   } else {
-    alert("That doesn't match the admin password or an admin email for this calendar.");
+    alert("That password isn't correct.");
   }
 };
 $('adminSigninEmail').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); $('adminSigninPassword').focus(); }
+});
+$('adminSigninPassword').addEventListener('keydown', (e) => {
   if(e.key === 'Enter') $('submitAdminSigninBtn').click();
 });
 
