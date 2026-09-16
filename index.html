@@ -93,6 +93,21 @@
   }
   .va-chip button:hover{background:var(--line); color:var(--rose-deep);}
   .va-chip .invite-btn{font-size:13px;}
+  .va-chip-clickable{cursor:pointer; transition:box-shadow .12s ease, border-color .12s ease;}
+  .va-chip-clickable:hover{border-color:var(--dusty); box-shadow:0 2px 8px rgba(162,90,120,0.12);}
+  .va-chip-clickable.filtering{border-color:var(--rose); box-shadow:0 0 0 2px rgba(194,90,124,0.25); background:#fff4f7;}
+  .note-filter-banner{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--rose-deep);
+    background:#fff0f3; border:1px solid var(--dusty); border-radius:10px; padding:7px 10px; margin-bottom:10px;
+  }
+  .note-filter-banner.hidden{display:none;}
+  .note-filter-banner .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  .note-filter-banner button{
+    margin-left:auto; background:none; border:none; color:var(--rose-deep); font-weight:700;
+    font-size:12px; cursor:pointer; padding:2px 4px;
+  }
+  .note-filter-banner button:hover{text-decoration:underline;}
+  .day-cell.filtered-note{box-shadow:inset 0 0 0 2px var(--rose); background:#fff6f4;}
   .invite-link-row{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
   .invite-link-row label{font-size:11.5px; font-weight:700; color:var(--plum-soft); display:block; margin-bottom:5px;}
   .invite-link-row input{
@@ -452,6 +467,7 @@
     <aside class="panel sidebar">
       <h3>Your VAs</h3>
       <div id="vaEmptyHint" class="empty-hint">No VAs added yet. Add your team below to start scheduling.</div>
+      <div class="note-filter-banner hidden" id="noteFilterBanner"></div>
       <div class="va-list" id="vaList"></div>
 
       <button class="btn btn-outline" id="addVaBtn" style="width:100%;">+ Add a VA</button>
@@ -984,7 +1000,8 @@ function renderVaList(){
   $('vaEmptyHint').style.display = state.vas.length ? 'none' : 'block';
   state.vas.forEach(va => {
     const chip = document.createElement('div');
-    chip.className = 'va-chip';
+    chip.className = 'va-chip va-chip-clickable' + (noteFilterVaId === va.id ? ' filtering' : '');
+    chip.title = 'Click to highlight ' + va.name + '\u2019s notes on the calendar';
     const showControls = isAdminUnlocked;
     chip.innerHTML = `
       <span class="va-dot" style="background:${va.color}"></span>
@@ -996,14 +1013,34 @@ function renderVaList(){
     if(showControls){
       const buttons = chip.querySelectorAll('button');
       if(va.email){
-        buttons[0].onclick = () => sendInviteEmail(va);
-        buttons[1].onclick = () => removeVa(va.id);
+        buttons[0].onclick = (e) => { e.stopPropagation(); sendInviteEmail(va); };
+        buttons[1].onclick = (e) => { e.stopPropagation(); removeVa(va.id); };
       } else {
-        buttons[0].onclick = () => removeVa(va.id);
+        buttons[0].onclick = (e) => { e.stopPropagation(); removeVa(va.id); };
       }
     }
+    chip.addEventListener('click', () => {
+      noteFilterVaId = (noteFilterVaId === va.id) ? null : va.id;
+      renderVaList();
+      renderCalendar();
+    });
     list.appendChild(chip);
   });
+  renderNoteFilterBanner();
+}
+
+function renderNoteFilterBanner(){
+  const banner = $('noteFilterBanner');
+  if(!banner) return;
+  if(!noteFilterVaId){
+    banner.classList.add('hidden');
+    return;
+  }
+  const va = state.vas.find(v => v.id === noteFilterVaId);
+  if(!va){ noteFilterVaId = null; banner.classList.add('hidden'); return; }
+  banner.classList.remove('hidden');
+  banner.innerHTML = `<span class="dot" style="background:${va.color}"></span> Highlighting ${escapeHtml(va.name)}\u2019s notes <button id="clearNoteFilterBtn">&times; Clear</button>`;
+  $('clearNoteFilterBtn').onclick = () => { noteFilterVaId = null; renderVaList(); renderCalendar(); };
 }
 
 function sendInviteEmail(va){
@@ -1328,6 +1365,10 @@ function renderCalendar(){
     }
     cell.appendChild(badges);
 
+    if(noteFilterVaId && hasNote && entry.noteAssignees && entry.noteAssignees.includes(noteFilterVaId)){
+      cell.classList.add('filtered-note');
+    }
+
     cell.onclick = () => openDayModal(key);
     grid.appendChild(cell);
   }
@@ -1638,6 +1679,7 @@ function renderFloralCorners(){
 
 // ---------- time off requests ----------
 let isAdminUnlocked = false;
+let noteFilterVaId = null;
 
 function renderTimeOffBadge(){
   const badge = $('timeoffBadge');
