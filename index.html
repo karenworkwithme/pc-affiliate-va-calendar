@@ -625,8 +625,9 @@
 <div class="overlay hidden" id="adminSigninOverlay">
   <div class="modal" style="max-width:400px;">
     <h2>Admin sign-in</h2>
-    <div class="modal-sub">Enter the admin email to unlock editing for this calendar. Everyone else sees a view-only calendar where the only action is requesting time off.</div>
-    <input type="email" id="adminSigninEmail" placeholder="Admin email" style="width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit; margin-top:6px;"/>
+    <div class="modal-sub">Enter the admin password or an admin email to unlock editing for this calendar. Everyone else sees a view-only calendar where the only action is requesting time off.</div>
+    <input type="text" id="adminSigninEmail" placeholder="Password or admin email" list="adminEmailSuggestions" autocomplete="off" style="width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit; margin-top:6px;"/>
+    <datalist id="adminEmailSuggestions"></datalist>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="closeAdminSigninBtn">Cancel</button>
       <button class="btn btn-primary" id="submitAdminSigninBtn">Unlock</button>
@@ -755,6 +756,7 @@ if(EMAILJS_CONFIGURED && typeof emailjs !== 'undefined'){
   emailjs.init({ publicKey: emailjsConfig.publicKey });
 }
 const ADMIN_EMAILS = ["karene@physicianschoice.com", "sindyp@physicianschoice.com"];
+const ADMIN_PASSWORD = "admin";
 const ADMIN_EMAIL = ADMIN_EMAILS[0]; // used as the notification recipient for time-off requests
 // =====================================================================
 
@@ -1679,22 +1681,36 @@ $('adminToggleBtn').onclick = () => {
     renderTimeOffList();
   } else {
     $('adminSigninEmail').value = '';
+    populateAdminSuggestions();
     $('adminSigninOverlay').classList.remove('hidden');
+    setTimeout(() => $('adminSigninEmail').focus(), 50);
   }
 };
 $('closeAdminSigninBtn').onclick = () => $('adminSigninOverlay').classList.add('hidden');
 $('adminSigninOverlay').onclick = (e) => { if(e.target === $('adminSigninOverlay')) $('adminSigninOverlay').classList.add('hidden'); };
+
+function populateAdminSuggestions(){
+  const list = $('adminEmailSuggestions');
+  if(!list) return;
+  list.innerHTML = ADMIN_EMAILS.map(e => `<option value="${e}"></option>`).join('');
+}
+
 $('submitAdminSigninBtn').onclick = () => {
   const val = ($('adminSigninEmail').value || '').trim().toLowerCase();
-  if(ADMIN_EMAILS.some(e => e.toLowerCase() === val)){
+  const isPasswordMatch = val === ADMIN_PASSWORD.toLowerCase();
+  const isEmailMatch = ADMIN_EMAILS.some(e => e.toLowerCase() === val);
+  if(isPasswordMatch || isEmailMatch){
     isAdminUnlocked = true;
     $('adminSigninOverlay').classList.add('hidden');
     refreshAdminUI();
     renderTimeOffList();
   } else {
-    alert("That email doesn't match an admin email for this calendar.");
+    alert("That doesn't match the admin password or an admin email for this calendar.");
   }
 };
+$('adminSigninEmail').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') $('submitAdminSigninBtn').click();
+});
 
 function applyApprovedTimeOff(req){
   const va = state.vas.find(v => v.id === req.vaId);
