@@ -108,6 +108,27 @@
   }
   .note-filter-banner button:hover{text-decoration:underline;}
   .day-cell.filtered-note{box-shadow:inset 0 0 0 2px var(--rose); background:#fff6f4;}
+  .mgmt-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    background:var(--maroon); color:#fff; border-radius:12px; padding:10px 14px; margin-bottom:14px;
+    font-size:13px; font-weight:700; position:relative; z-index:2;
+  }
+  .mgmt-banner.hidden{display:none;}
+  .mgmt-event-chip{
+    background:var(--maroon); color:#fff; font-size:9.5px; font-weight:700; border-radius:6px;
+    padding:2px 6px; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .mgmt-event-row{
+    border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px;
+    background:#fffaf8; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+  }
+  .mgmt-event-row .ev-title{font-weight:700; font-size:14px;}
+  .mgmt-event-row .ev-time{font-size:12px; color:var(--plum-soft); margin-top:2px;}
+  .mgmt-event-row .ev-notes{font-size:12.5px; color:var(--plum); margin-top:4px; line-height:1.4;}
+  .mgmt-add-row{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;}
+  .mgmt-add-row input[type=text]{flex:2; min-width:140px;}
+  .mgmt-add-row input[type=time]{flex:1; min-width:100px;}
+  .mgmt-add-row input{padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit; font-size:13px;}
   .invite-link-row{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
   .invite-link-row label{font-size:11.5px; font-weight:700; color:var(--plum-soft); display:block; margin-bottom:5px;}
   .invite-link-row input{
@@ -501,6 +522,7 @@
           <span class="timeoff-badge hidden" id="timeoffBadge">0</span>
         </button>
         <button class="btn btn-outline" id="weeklyScheduleBtn" style="width:100%; margin-top:8px;">📋 Set weekly schedule</button>
+        <button class="btn btn-primary" id="mgmtCalendarBtn" style="width:100%; margin-top:8px;">📅 MGMT Calendar</button>
       </div>
     </aside>
 
@@ -510,14 +532,22 @@
       <svg class="calendar-corner cf-bl" id="cornerBL" width="170" height="170" viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg"></svg>
       <svg class="calendar-corner cf-br" id="cornerBR" width="170" height="170" viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg"></svg>
 
-      <div class="zone-toggle">
-        <button class="zone-btn active" id="zoneBtnET">🇺🇸 Eastern</button>
-        <button class="zone-btn" id="zoneBtnCT">🇺🇸 Central</button>
-        <button class="zone-btn" id="zoneBtnMT">🇺🇸 Mountain</button>
-        <button class="zone-btn" id="zoneBtnPT">🇺🇸 Pacific</button>
-        <button class="zone-btn" id="zoneBtnPH">🇵🇭 Manila</button>
+      <div id="vaZoneControls">
+        <div class="zone-toggle">
+          <button class="zone-btn active" id="zoneBtnET">🇺🇸 Eastern</button>
+          <button class="zone-btn" id="zoneBtnCT">🇺🇸 Central</button>
+          <button class="zone-btn" id="zoneBtnMT">🇺🇸 Mountain</button>
+          <button class="zone-btn" id="zoneBtnPT">🇺🇸 Pacific</button>
+          <button class="zone-btn" id="zoneBtnPH">🇵🇭 Manila</button>
+        </div>
+        <div class="zone-hint" id="zoneHint">Shifts are entered in Eastern Time. Switch tabs to see the same calendar converted to another time zone.</div>
       </div>
-      <div class="zone-hint" id="zoneHint">Shifts are entered in Eastern Time. Switch tabs to see the same calendar converted to another time zone.</div>
+
+      <div class="mgmt-banner hidden" id="mgmtBanner">
+        <span>📅 MGMT Calendar — visible only to admins</span>
+        <button class="btn btn-outline btn-sm" id="backToVaCalendarBtn">← Back to VA Calendar</button>
+      </div>
+
       <div class="cal-nav">
         <button class="icon-btn" id="prevMonth">&#8592;</button>
         <h2 id="monthLabel">Month Year</h2>
@@ -526,11 +556,17 @@
           <button class="icon-btn" id="nextMonth">&#8594;</button>
         </div>
       </div>
-      <div class="calendar-table">
+      <div class="calendar-table" id="vaCalendarTable">
         <div class="weekdays">
           <span>Sunday</span><span>Monday</span><span>Tuesday</span><span>Wednesday</span><span>Thursday</span><span>Friday</span><span>Saturday</span>
         </div>
         <div class="grid" id="calGrid"></div>
+      </div>
+      <div class="calendar-table hidden" id="mgmtCalendarTable">
+        <div class="weekdays">
+          <span>Sunday</span><span>Monday</span><span>Tuesday</span><span>Wednesday</span><span>Thursday</span><span>Friday</span><span>Saturday</span>
+        </div>
+        <div class="grid" id="mgmtGrid"></div>
       </div>
     </section>
   </div>
@@ -740,6 +776,28 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="mgmtDayOverlay">
+  <div class="modal" id="mgmtDayModal" style="max-width:520px;">
+    <h2 id="mgmtModalDate">Day</h2>
+    <div class="modal-sub">Management-only events for this day — not visible on the VA calendar.</div>
+
+    <div id="mgmtEventList"></div>
+    <div id="mgmtEmptyMsg" class="off-note" style="display:none;">No events yet for this day.</div>
+
+    <label class="invite-field-label" style="margin-top:14px;">Add an event</label>
+    <div class="mgmt-add-row">
+      <input type="text" id="mgmtNewTitle" placeholder="Event title"/>
+      <input type="time" id="mgmtNewTime"/>
+    </div>
+    <textarea id="mgmtNewNotes" rows="2" placeholder="Notes (optional)" style="margin-top:8px;"></textarea>
+    <button class="btn btn-outline" id="mgmtAddEventBtn" style="margin-top:8px;">+ Add event</button>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="$('mgmtDayOverlay').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="save-flash" id="saveFlash">Saved ✓</div>
 
 <script>
@@ -804,7 +862,7 @@ const ZONES = {
   PH: { tz: PH_ZONE, label: 'Manila Time' }
 };
 
-let state = { vas: [], entries: {}, calendarLink: '', timeOffRequests: [] };
+let state = { vas: [], entries: {}, calendarLink: '', timeOffRequests: [], mgmtEvents: {} };
 let viewYear, viewMonth; // 0-indexed month
 let selectedDateStr = null;
 let pendingColor = COLORS[0];
@@ -830,6 +888,7 @@ function applyLoadedData(parsed){
   state.entries = parsed.entries || {};
   state.calendarLink = parsed.calendarLink || '';
   state.timeOffRequests = parsed.timeOffRequests || [];
+  state.mgmtEvents = parsed.mgmtEvents || {};
 }
 
 async function loadState(){
@@ -1001,7 +1060,7 @@ function renderVaList(){
   state.vas.forEach(va => {
     const chip = document.createElement('div');
     chip.className = 'va-chip va-chip-clickable' + (noteFilterVaId === va.id ? ' filtering' : '');
-    chip.title = 'Click to highlight ' + va.name + '\u2019s notes on the calendar';
+    chip.title = 'Click to show only ' + va.name + '\u2019s notes on the calendar';
     const showControls = isAdminUnlocked;
     chip.innerHTML = `
       <span class="va-dot" style="background:${va.color}"></span>
@@ -1039,7 +1098,7 @@ function renderNoteFilterBanner(){
   const va = state.vas.find(v => v.id === noteFilterVaId);
   if(!va){ noteFilterVaId = null; banner.classList.add('hidden'); return; }
   banner.classList.remove('hidden');
-  banner.innerHTML = `<span class="dot" style="background:${va.color}"></span> Highlighting ${escapeHtml(va.name)}\u2019s notes <button id="clearNoteFilterBtn">&times; Clear</button>`;
+  banner.innerHTML = `<span class="dot" style="background:${va.color}"></span> Showing only ${escapeHtml(va.name)}\u2019s notes <button id="clearNoteFilterBtn">&times; Clear</button>`;
   $('clearNoteFilterBtn').onclick = () => { noteFilterVaId = null; renderVaList(); renderCalendar(); };
 }
 
@@ -1344,13 +1403,14 @@ function renderCalendar(){
     badges.className = 'badges';
     if(anyOff){ const b=document.createElement('span'); b.className='badge off'; b.textContent='off'; badges.appendChild(b); }
     if(invoice){ const b=document.createElement('span'); b.className='badge invoice'; b.textContent='$'; badges.appendChild(b); }
-    if(hasNote){
+    const noteAssignees = (entry && entry.noteAssignees) || [];
+    const noteMatchesFilter = !noteFilterVaId || noteAssignees.includes(noteFilterVaId);
+    if(hasNote && noteMatchesFilter){
       const b=document.createElement('span'); b.className='badge note'; b.textContent='note'; badges.appendChild(b);
-      const assignees = (entry && entry.noteAssignees) || [];
-      if(assignees.length){
+      if(noteAssignees.length){
         const dotsWrap = document.createElement('span');
         dotsWrap.className = 'note-assignee-dots';
-        assignees.forEach(id => {
+        noteAssignees.forEach(id => {
           const va = state.vas.find(v => v.id === id);
           if(va){
             const d = document.createElement('span');
@@ -1365,7 +1425,7 @@ function renderCalendar(){
     }
     cell.appendChild(badges);
 
-    if(noteFilterVaId && hasNote && entry.noteAssignees && entry.noteAssignees.includes(noteFilterVaId)){
+    if(noteFilterVaId && hasNote && noteMatchesFilter){
       cell.classList.add('filtered-note');
     }
 
@@ -1373,6 +1433,140 @@ function renderCalendar(){
     grid.appendChild(cell);
   }
 }
+
+// ---------- MGMT calendar (admin-only) ----------
+function switchToMgmtCalendarView(){
+  if(!isAdminUnlocked) return;
+  currentView = 'mgmt';
+  $('vaZoneControls').style.display = 'none';
+  $('mgmtBanner').classList.remove('hidden');
+  $('vaCalendarTable').classList.add('hidden');
+  $('mgmtCalendarTable').classList.remove('hidden');
+  renderMgmtCalendar();
+}
+
+function switchToVaCalendarView(){
+  currentView = 'va';
+  $('vaZoneControls').style.display = '';
+  $('mgmtBanner').classList.add('hidden');
+  $('mgmtCalendarTable').classList.add('hidden');
+  $('vaCalendarTable').classList.remove('hidden');
+  renderCalendar();
+}
+
+$('mgmtCalendarBtn').onclick = switchToMgmtCalendarView;
+$('backToVaCalendarBtn').onclick = switchToVaCalendarView;
+
+function renderMgmtCalendar(){
+  renderMonthLabel();
+  const grid = $('mgmtGrid');
+  grid.innerHTML = '';
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const tStr = todayStr();
+
+  for(let i=0;i<firstDay;i++){
+    const filler = document.createElement('div');
+    filler.className = 'day-cell empty';
+    grid.appendChild(filler);
+  }
+
+  for(let d=1; d<=daysInMonth; d++){
+    const key = dateKey(viewYear, viewMonth, d);
+    const events = state.mgmtEvents[key] || [];
+    const cell = document.createElement('div');
+    cell.className = 'day-cell' + (key === tStr ? ' today' : '');
+
+    const num = document.createElement('div');
+    num.className = 'num';
+    num.textContent = d;
+    cell.appendChild(num);
+
+    const evRow = document.createElement('div');
+    evRow.className = 'shift-row';
+    events.slice(0, 3).forEach(ev => {
+      const chip = document.createElement('div');
+      chip.className = 'mgmt-event-chip';
+      chip.textContent = (ev.time ? formatEtLabel(ev.time) + ' ' : '') + ev.title;
+      evRow.appendChild(chip);
+    });
+    if(events.length > 3){
+      const more = document.createElement('div');
+      more.className = 'mgmt-event-chip';
+      more.style.background = 'var(--rose)';
+      more.textContent = `+${events.length - 3} more`;
+      evRow.appendChild(more);
+    }
+    cell.appendChild(evRow);
+
+    cell.onclick = () => openMgmtDayModal(key);
+    grid.appendChild(cell);
+  }
+}
+
+let mgmtSelectedDate = null;
+
+function openMgmtDayModal(dateStr){
+  mgmtSelectedDate = dateStr;
+  const niceDate = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  $('mgmtModalDate').textContent = niceDate;
+  $('mgmtNewTitle').value = '';
+  $('mgmtNewTime').value = '';
+  $('mgmtNewNotes').value = '';
+  renderMgmtEventList();
+  $('mgmtDayOverlay').classList.remove('hidden');
+}
+
+function renderMgmtEventList(){
+  const list = $('mgmtEventList');
+  list.innerHTML = '';
+  const events = state.mgmtEvents[mgmtSelectedDate] || [];
+  $('mgmtEmptyMsg').style.display = events.length ? 'none' : 'block';
+  events.forEach(ev => {
+    const row = document.createElement('div');
+    row.className = 'mgmt-event-row';
+    row.innerHTML = `
+      <div>
+        <div class="ev-title">${ev.time ? formatEtLabel(ev.time) + ' — ' : ''}${escapeHtml(ev.title)}</div>
+        ${ev.notes ? `<div class="ev-notes">${escapeHtml(ev.notes)}</div>` : ''}
+      </div>
+    `;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-ghost btn-sm';
+    delBtn.textContent = '🗑';
+    delBtn.title = 'Delete this event';
+    delBtn.onclick = () => {
+      if(!confirm('Delete this event?')) return;
+      state.mgmtEvents[mgmtSelectedDate] = (state.mgmtEvents[mgmtSelectedDate] || []).filter(e => e.id !== ev.id);
+      if(state.mgmtEvents[mgmtSelectedDate].length === 0) delete state.mgmtEvents[mgmtSelectedDate];
+      queueSave();
+      renderMgmtEventList();
+      renderMgmtCalendar();
+    };
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+}
+
+$('mgmtAddEventBtn').onclick = () => {
+  const title = $('mgmtNewTitle').value.trim();
+  if(!title) return;
+  const ev = {
+    id: 'mev_' + Date.now(),
+    title,
+    time: $('mgmtNewTime').value || '',
+    notes: $('mgmtNewNotes').value.trim()
+  };
+  if(!state.mgmtEvents[mgmtSelectedDate]) state.mgmtEvents[mgmtSelectedDate] = [];
+  state.mgmtEvents[mgmtSelectedDate].push(ev);
+  state.mgmtEvents[mgmtSelectedDate].sort((a,b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+  queueSave();
+  $('mgmtNewTitle').value = '';
+  $('mgmtNewTime').value = '';
+  $('mgmtNewNotes').value = '';
+  renderMgmtEventList();
+  renderMgmtCalendar();
+};
 
 function setActiveZone(zoneKey){
   activeZone = zoneKey;
@@ -1392,9 +1586,13 @@ $('zoneBtnMT').onclick = () => setActiveZone('MT');
 $('zoneBtnPT').onclick = () => setActiveZone('PT');
 $('zoneBtnPH').onclick = () => setActiveZone('PH');
 
-$('prevMonth').onclick = () => { viewMonth--; if(viewMonth<0){viewMonth=11; viewYear--;} renderCalendar(); };
-$('nextMonth').onclick = () => { viewMonth++; if(viewMonth>11){viewMonth=0; viewYear++;} renderCalendar(); };
-$('todayBtn').onclick = () => { const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); renderCalendar(); };
+function renderCurrentView(){
+  if(currentView === 'mgmt') renderMgmtCalendar();
+  else renderCalendar();
+}
+$('prevMonth').onclick = () => { viewMonth--; if(viewMonth<0){viewMonth=11; viewYear--;} renderCurrentView(); };
+$('nextMonth').onclick = () => { viewMonth++; if(viewMonth>11){viewMonth=0; viewYear++;} renderCurrentView(); };
+$('todayBtn').onclick = () => { const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); renderCurrentView(); };
 
 // ---------- day modal ----------
 function renderAssigneeChips(selectedIds){
@@ -1680,6 +1878,7 @@ function renderFloralCorners(){
 // ---------- time off requests ----------
 let isAdminUnlocked = false;
 let noteFilterVaId = null;
+let currentView = 'va'; // 'va' or 'mgmt'
 
 function renderTimeOffBadge(){
   const badge = $('timeoffBadge');
@@ -1763,11 +1962,16 @@ function refreshAdminUI(){
   $('addVaBtn').style.display = isAdminUnlocked ? '' : 'none';
   if(!isAdminUnlocked){ $('addVaForm').classList.remove('open'); }
   $('weeklyScheduleBtn').style.display = isAdminUnlocked ? '' : 'none';
+  $('mgmtCalendarBtn').style.display = isAdminUnlocked ? '' : 'none';
   const inviteRow = document.querySelector('.invite-link-row');
   if(inviteRow) inviteRow.style.display = isAdminUnlocked ? '' : 'none';
 
   $('adminUnlockedTag').classList.toggle('hidden', !isAdminUnlocked);
   $('adminLockedTag').classList.toggle('hidden', isAdminUnlocked);
+
+  if(!isAdminUnlocked && currentView === 'mgmt'){
+    switchToVaCalendarView();
+  }
 
   renderVaList();
 }
