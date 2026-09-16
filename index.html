@@ -9,6 +9,8 @@
 <!-- Firebase (used when this file is hosted outside Claude.ai, e.g. Google Sites) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- EmailJS (used to send you a notification when a VA requests time off) -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root{
     --blush: #fdf3f2;
@@ -106,6 +108,37 @@
     font-family:inherit; font-size:12.5px; background:#fff;
   }
   .invite-link-row .hint{font-size:11px; color:var(--plum-soft); margin-top:5px; line-height:1.4;}
+
+  .timeoff-section{margin-top:14px; padding-top:14px; border-top:1px dashed var(--line);}
+  .timeoff-badge{
+    position:absolute; top:-7px; right:-7px; background:var(--rose); color:#fff;
+    font-size:10.5px; font-weight:800; min-width:18px; height:18px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center; padding:0 4px;
+  }
+  .timeoff-badge.hidden{display:none;}
+
+  .req-row{
+    border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px;
+    background:#fffaf8;
+  }
+  .req-row .req-top{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;}
+  .req-va-tag{display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px;}
+  .req-dates{font-size:13px; color:var(--plum-soft); margin-top:6px;}
+  .req-reason{font-size:13px; color:var(--plum); margin-top:6px; line-height:1.4; font-style:italic;}
+  .req-status{font-size:11px; font-weight:800; padding:2px 9px; border-radius:10px; text-transform:uppercase; letter-spacing:0.3px;}
+  .req-status.pending{background:#fbeecb; color:#a9781b;}
+  .req-status.approved{background:#e2efe0; color:var(--leaf-deep);}
+  .req-status.denied{background:#f6dde2; color:#a5455f;}
+  .req-actions{display:flex; gap:8px; margin-top:10px;}
+  .admin-gate{
+    display:flex; gap:8px; align-items:center; margin-bottom:16px; padding:10px 12px;
+    background:#fff6f4; border:1px solid var(--line); border-radius:12px; flex-wrap:wrap;
+  }
+  .admin-gate input{
+    flex:1; min-width:160px; padding:7px 10px; border-radius:9px; border:1px solid var(--line);
+    font-family:inherit; font-size:13px;
+  }
+  .admin-unlocked-tag{font-size:12.5px; color:var(--leaf-deep); font-weight:700;}
 
   .add-va-form{display:none; flex-direction:column; gap:8px; margin-top:6px;}
   .add-va-form.open{display:flex;}
@@ -432,6 +465,14 @@
         <input type="text" id="calendarLinkInput" placeholder="https://..."/>
         <div class="hint">Add each VA's email above, then use the ✉️ button on their name to open an email invite with this link included.</div>
       </div>
+
+      <div class="timeoff-section">
+        <button class="btn btn-outline" id="requestTimeOffBtn" style="width:100%;">+ Request time off</button>
+        <button class="btn btn-outline" id="viewTimeOffBtn" style="width:100%; margin-top:8px; position:relative;">
+          Time off requests
+          <span class="timeoff-badge hidden" id="timeoffBadge">0</span>
+        </button>
+      </div>
     </aside>
 
     <section class="panel calendar-panel watercolor-bg">
@@ -568,6 +609,56 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="requestTimeOffOverlay">
+  <div class="modal" id="requestTimeOffModal" style="max-width:460px;">
+    <h2>Request time off</h2>
+    <div class="modal-sub">Pick who it's for, the dates, and a short reason.</div>
+
+    <label class="invite-field-label">VA</label>
+    <select id="reqVaSelect" class="rt-select" style="width:100%; padding:9px 10px; font-size:14px;"></select>
+
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <div style="flex:1;">
+        <label class="invite-field-label">Start date</label>
+        <input type="date" id="reqStartDate" style="width:100%; padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
+      </div>
+      <div style="flex:1;">
+        <label class="invite-field-label">End date</label>
+        <input type="date" id="reqEndDate" style="width:100%; padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
+      </div>
+    </div>
+
+    <label class="invite-field-label">Reason (optional)</label>
+    <textarea id="reqReason" rows="3" placeholder="e.g. family event, medical appointment..."></textarea>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeRequestTimeOffBtn">Cancel</button>
+      <button class="btn btn-primary" id="submitTimeOffBtn">Submit request</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="timeOffListOverlay">
+  <div class="modal" id="timeOffListModal" style="max-width:560px;">
+    <h2>Time off requests</h2>
+    <div class="modal-sub">Approving a request automatically marks that VA as off on the calendar for those dates.</div>
+
+    <div class="admin-gate" id="adminGate">
+      <span style="font-size:12.5px; font-weight:700; color:var(--plum-soft);">Admin:</span>
+      <input type="email" id="adminEmailInput" placeholder="Enter admin email to approve/deny"/>
+      <button class="btn btn-outline btn-sm" id="adminUnlockBtn">Unlock</button>
+      <span class="admin-unlocked-tag hidden" id="adminUnlockedTag">✓ Unlocked for approvals</span>
+    </div>
+
+    <div id="timeOffListBody"></div>
+    <div id="timeOffEmptyMsg" class="off-note" style="display:none;">No time off requests yet.</div>
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="$('timeOffListOverlay').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="save-flash" id="saveFlash">Saved ✓</div>
 
 <script>
@@ -597,12 +688,30 @@ const USE_FIREBASE = !!firebaseDb;
 const USE_CLAUDE_STORAGE = !USE_FIREBASE && typeof window.storage !== 'undefined';
 // =====================================================================
 
+// =====================================================================
+// EMAILJS SETUP — paste your keys from emailjs.com below to enable
+// automatic email notifications when a VA requests time off.
+// Leave as-is (with "YOUR_PUBLIC_KEY") to skip notifications for now —
+// requests will still work, you just won't get emailed about them.
+// =====================================================================
+const emailjsConfig = {
+  publicKey: "fkJ3mmBbZd6l1AZ_8",
+  serviceId: "service_ul1zh0h",
+  templateId: "meys5jr"
+};
+const EMAILJS_CONFIGURED = emailjsConfig.publicKey !== "YOUR_PUBLIC_KEY";
+if(EMAILJS_CONFIGURED && typeof emailjs !== 'undefined'){
+  emailjs.init({ publicKey: emailjsConfig.publicKey });
+}
+const ADMIN_EMAIL = "karene@physicianschoice.com";
+// =====================================================================
+
 const COLORS = ['#c25a7c', '#8ea37e', '#d9a441', '#8a7fc2', '#5fa3b8', '#c47a4a'];
 const STORAGE_KEY = 'calendar-data';
 const ET_ZONE = 'America/New_York';
 const PH_ZONE = 'Asia/Manila';
 
-let state = { vas: [], entries: {}, calendarLink: '' };
+let state = { vas: [], entries: {}, calendarLink: '', timeOffRequests: [] };
 let viewYear, viewMonth; // 0-indexed month
 let selectedDateStr = null;
 let pendingColor = COLORS[0];
@@ -627,6 +736,7 @@ function applyLoadedData(parsed){
   state.vas = parsed.vas || [];
   state.entries = parsed.entries || {};
   state.calendarLink = parsed.calendarLink || '';
+  state.timeOffRequests = parsed.timeOffRequests || [];
 }
 
 async function loadState(){
@@ -643,6 +753,7 @@ async function loadState(){
       applyLoadedData(snap.val());
       renderVaList();
       renderCalendar();
+      renderTimeOffBadge();
       if(document.activeElement !== $('calendarLinkInput')) $('calendarLinkInput').value = state.calendarLink || '';
     });
     return;
@@ -843,6 +954,7 @@ function removeVa(id){
   queueSave();
   renderVaList();
   renderCalendar();
+  renderTimeOffBadge();
 }
 
 // ---------- rich text notes: helpers, toolbar, emoji/sticker picker ----------
@@ -1010,6 +1122,7 @@ $('saveVaBtn').onclick = () => {
   queueSave();
   renderVaList();
   renderCalendar();
+  renderTimeOffBadge();
 };
 
 // ---------- calendar rendering ----------
@@ -1381,6 +1494,172 @@ function renderFloralCorners(){
   `;
 }
 
+// ---------- time off requests ----------
+let isAdminUnlocked = false;
+
+function renderTimeOffBadge(){
+  const badge = $('timeoffBadge');
+  if(!badge) return;
+  const pendingCount = state.timeOffRequests.filter(r => r.status === 'pending').length;
+  badge.textContent = pendingCount;
+  badge.classList.toggle('hidden', pendingCount === 0);
+}
+
+function openRequestTimeOffModal(){
+  const select = $('reqVaSelect');
+  select.innerHTML = '';
+  if(!state.vas.length){
+    select.innerHTML = '<option value="">Add a VA first</option>';
+  } else {
+    state.vas.forEach(va => {
+      const opt = document.createElement('option');
+      opt.value = va.id;
+      opt.textContent = va.name;
+      select.appendChild(opt);
+    });
+  }
+  $('reqStartDate').value = todayStr();
+  $('reqEndDate').value = todayStr();
+  $('reqReason').value = '';
+  $('requestTimeOffOverlay').classList.remove('hidden');
+}
+
+async function sendTimeOffNotification(req, va){
+  if(!EMAILJS_CONFIGURED || typeof emailjs === 'undefined') return;
+  try{
+    await emailjs.send(emailjsConfig.serviceId, emailjsConfig.templateId, {
+      to_email: ADMIN_EMAIL,
+      va_name: va ? va.name : 'A VA',
+      start_date: req.startDate,
+      end_date: req.endDate,
+      reason: req.reason || '(no reason given)'
+    });
+  }catch(e){
+    console.error('EmailJS notification failed', e);
+  }
+}
+
+$('requestTimeOffBtn').onclick = openRequestTimeOffModal;
+$('closeRequestTimeOffBtn').onclick = () => $('requestTimeOffOverlay').classList.add('hidden');
+$('requestTimeOffOverlay').onclick = (e) => { if(e.target === $('requestTimeOffOverlay')) $('requestTimeOffOverlay').classList.add('hidden'); };
+
+$('submitTimeOffBtn').onclick = async () => {
+  const vaId = $('reqVaSelect').value;
+  const startDate = $('reqStartDate').value;
+  const endDate = $('reqEndDate').value;
+  const reason = $('reqReason').value.trim();
+  if(!vaId || !startDate || !endDate){ return; }
+  if(endDate < startDate){ alert('End date must be on or after the start date.'); return; }
+
+  const req = {
+    id: 'req_' + Date.now(),
+    vaId, startDate, endDate, reason,
+    status: 'pending',
+    requestedAt: new Date().toISOString()
+  };
+  state.timeOffRequests.push(req);
+  queueSave();
+  renderTimeOffBadge();
+  $('requestTimeOffOverlay').classList.add('hidden');
+
+  const va = state.vas.find(v => v.id === vaId);
+  sendTimeOffNotification(req, va);
+};
+
+$('viewTimeOffBtn').onclick = () => {
+  renderTimeOffList();
+  $('timeOffListOverlay').classList.remove('hidden');
+};
+$('timeOffListOverlay').onclick = (e) => { if(e.target === $('timeOffListOverlay')) $('timeOffListOverlay').classList.add('hidden'); };
+
+$('adminUnlockBtn').onclick = () => {
+  const val = ($('adminEmailInput').value || '').trim().toLowerCase();
+  if(val === ADMIN_EMAIL.toLowerCase()){
+    isAdminUnlocked = true;
+    $('adminUnlockedTag').classList.remove('hidden');
+    $('adminEmailInput').style.display = 'none';
+    $('adminUnlockBtn').style.display = 'none';
+    renderTimeOffList();
+  } else {
+    alert("That email doesn't match the approver's email for this calendar.");
+  }
+};
+
+function applyApprovedTimeOff(req){
+  const va = state.vas.find(v => v.id === req.vaId);
+  if(!va) return;
+  const start = new Date(req.startDate + 'T00:00:00');
+  const end = new Date(req.endDate + 'T00:00:00');
+  for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)){
+    const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+    const entry = state.entries[key] || { notes:'', invoiceDue:false, vaSchedules:{}, noteAssignees:[] };
+    entry.vaSchedules = entry.vaSchedules || {};
+    entry.vaSchedules[req.vaId] = { off:true, start:'09:00', end:'17:00' };
+    state.entries[key] = entry;
+  }
+}
+
+function renderTimeOffList(){
+  const body = $('timeOffListBody');
+  body.innerHTML = '';
+  $('timeOffEmptyMsg').style.display = state.timeOffRequests.length ? 'none' : 'block';
+
+  const sorted = [...state.timeOffRequests].sort((a,b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+  sorted.forEach(req => {
+    const va = state.vas.find(v => v.id === req.vaId);
+    const row = document.createElement('div');
+    row.className = 'req-row';
+    const niceStart = new Date(req.startDate + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    const niceEnd = new Date(req.endDate + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    row.innerHTML = `
+      <div class="req-top">
+        <div class="req-va-tag">
+          <span class="va-dot" style="background:${va ? va.color : '#ccc'}"></span>
+          ${escapeHtml(va ? va.name : 'Unknown VA')}
+        </div>
+        <span class="req-status ${req.status}">${req.status}</span>
+      </div>
+      <div class="req-dates">${niceStart}${req.startDate !== req.endDate ? ' – ' + niceEnd : ''}</div>
+      ${req.reason ? `<div class="req-reason">"${escapeHtml(req.reason)}"</div>` : ''}
+    `;
+    if(req.status === 'pending'){
+      const actions = document.createElement('div');
+      actions.className = 'req-actions';
+      if(isAdminUnlocked){
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'btn btn-primary btn-sm';
+        approveBtn.textContent = 'Approve';
+        approveBtn.onclick = () => {
+          req.status = 'approved';
+          applyApprovedTimeOff(req);
+          queueSave();
+          renderTimeOffList();
+          renderTimeOffBadge();
+          renderCalendar();
+        };
+        const denyBtn = document.createElement('button');
+        denyBtn.className = 'btn btn-outline btn-sm';
+        denyBtn.textContent = 'Deny';
+        denyBtn.onclick = () => {
+          req.status = 'denied';
+          queueSave();
+          renderTimeOffList();
+          renderTimeOffBadge();
+        };
+        actions.appendChild(approveBtn);
+        actions.appendChild(denyBtn);
+      } else {
+        const hint = document.createElement('div');
+        hint.className = 'off-note';
+        hint.textContent = 'Only the approver can act on this — enter the admin email above.';
+        actions.appendChild(hint);
+      }
+      row.appendChild(actions);
+    }
+    body.appendChild(row);
+  });
+}
+
 // ---------- init ----------
 async function init(){
   const now = new Date();
@@ -1392,6 +1671,7 @@ async function init(){
   await loadState();
   renderVaList();
   renderCalendar();
+  renderTimeOffBadge();
   $('calendarLinkInput').value = state.calendarLink || '';
   $('calendarLinkInput').addEventListener('change', () => {
     state.calendarLink = $('calendarLinkInput').value.trim();
