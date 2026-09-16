@@ -748,13 +748,14 @@ const USE_CLAUDE_STORAGE = !USE_FIREBASE && typeof window.storage !== 'undefined
 const emailjsConfig = {
   publicKey: "fkJ3mmBbZd6l1AZ_8",
   serviceId: "service_ul1zh0h",
-  templateId: "meys5jr"
+  templateId: "template_out4zde"
 };
 const EMAILJS_CONFIGURED = emailjsConfig.publicKey !== "YOUR_PUBLIC_KEY";
 if(EMAILJS_CONFIGURED && typeof emailjs !== 'undefined'){
   emailjs.init({ publicKey: emailjsConfig.publicKey });
 }
-const ADMIN_EMAIL = "karene@physicianschoice.com";
+const ADMIN_EMAILS = ["karene@physicianschoice.com", "sindyp@physicianschoice.com"];
+const ADMIN_EMAIL = ADMIN_EMAILS[0]; // used as the notification recipient for time-off requests
 // =====================================================================
 
 const COLORS = ['#c25a7c', '#8ea37e', '#d9a441', '#8a7fc2', '#5fa3b8', '#c47a4a'];
@@ -1685,13 +1686,13 @@ $('closeAdminSigninBtn').onclick = () => $('adminSigninOverlay').classList.add('
 $('adminSigninOverlay').onclick = (e) => { if(e.target === $('adminSigninOverlay')) $('adminSigninOverlay').classList.add('hidden'); };
 $('submitAdminSigninBtn').onclick = () => {
   const val = ($('adminSigninEmail').value || '').trim().toLowerCase();
-  if(val === ADMIN_EMAIL.toLowerCase()){
+  if(ADMIN_EMAILS.some(e => e.toLowerCase() === val)){
     isAdminUnlocked = true;
     $('adminSigninOverlay').classList.add('hidden');
     refreshAdminUI();
     renderTimeOffList();
   } else {
-    alert("That email doesn't match the admin email for this calendar.");
+    alert("That email doesn't match an admin email for this calendar.");
   }
 };
 
