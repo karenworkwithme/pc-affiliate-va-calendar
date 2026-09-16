@@ -1767,6 +1767,21 @@ function renderTimeOffList(){
       }
       row.appendChild(actions);
     }
+    if(isAdminUnlocked){
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn btn-ghost btn-sm';
+      deleteBtn.title = 'Delete this request';
+      deleteBtn.textContent = '🗑 Delete';
+      deleteBtn.style.marginTop = req.status === 'pending' ? '6px' : '10px';
+      deleteBtn.onclick = () => {
+        if(!confirm('Delete this time off request? This only removes the request record — it will not undo any "off" days already applied to the calendar.')) return;
+        state.timeOffRequests = state.timeOffRequests.filter(r => r.id !== req.id);
+        queueSave();
+        renderTimeOffList();
+        renderTimeOffBadge();
+      };
+      row.appendChild(deleteBtn);
+    }
     body.appendChild(row);
   });
 }
