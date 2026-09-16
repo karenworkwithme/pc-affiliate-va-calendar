@@ -600,43 +600,45 @@
       <label style="font-weight:700; font-size:14px;">Notes</label>
       <button type="button" class="btn btn-ghost" id="clearNoteBtn" style="font-size:12.5px; padding:4px 8px;">🗑 Clear note</button>
     </div>
-    <div class="rt-toolbar">
-      <button type="button" class="rt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
-      <button type="button" class="rt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
-      <button type="button" class="rt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
-      <span class="rt-sep"></span>
-      <select id="fontSizeSelect" class="rt-select" title="Text size">
-        <option value="2">Small</option>
-        <option value="3" selected>Normal</option>
-        <option value="5">Large</option>
-        <option value="7">X-Large</option>
-      </select>
-      <span class="rt-sep"></span>
-      <button type="button" class="rt-btn" data-cmd="insertUnorderedList" title="Bullet list">&#8226;&#8801;</button>
-      <span class="rt-sep"></span>
-      <button type="button" class="rt-btn rt-emoji-btn" id="emojiToggleBtn" title="Add stickers &amp; emoji">😊</button>
-    </div>
-    <div class="rt-toolbar rt-color-row">
-      <span class="rt-color-label">Text</span>
-      <div class="rt-swatches" id="textColorSwatches"></div>
-      <label class="rt-custom-swatch" title="Custom text color">
-        <input type="color" id="textColorInput" value="#4a2e39"/>
-      </label>
-      <span class="rt-sep"></span>
-      <span class="rt-color-label">Highlight</span>
-      <div class="rt-swatches" id="highlightColorSwatches"></div>
-      <label class="rt-custom-swatch" title="Custom highlight color">
-        <input type="color" id="highlightColorInput" value="#fff2a8"/>
-      </label>
-    </div>
-    <div id="notesArea" class="notes-editor" contenteditable="true" data-placeholder="Anything the team should know about this day..."></div>
-    <div class="emoji-panel hidden" id="emojiPanel">
-      <div class="emoji-tabs">
-        <button type="button" class="emoji-tab active" data-tab="emoji">Emoji</button>
-        <button type="button" class="emoji-tab" data-tab="stickers">Stickers</button>
+    <div id="notesRTWrap">
+      <div class="rt-toolbar">
+        <button type="button" class="rt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+        <button type="button" class="rt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+        <button type="button" class="rt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+        <span class="rt-sep"></span>
+        <select id="fontSizeSelect" class="rt-select" title="Text size">
+          <option value="2">Small</option>
+          <option value="3" selected>Normal</option>
+          <option value="5">Large</option>
+          <option value="7">X-Large</option>
+        </select>
+        <span class="rt-sep"></span>
+        <button type="button" class="rt-btn" data-cmd="insertUnorderedList" title="Bullet list">&#8226;&#8801;</button>
+        <span class="rt-sep"></span>
+        <button type="button" class="rt-btn rt-emoji-btn" id="emojiToggleBtn" title="Add stickers &amp; emoji">😊</button>
       </div>
-      <div class="emoji-grid" id="emojiGrid"></div>
-      <div class="emoji-grid hidden" id="stickerGrid"></div>
+      <div class="rt-toolbar rt-color-row">
+        <span class="rt-color-label">Text</span>
+        <div class="rt-swatches" id="textColorSwatches"></div>
+        <label class="rt-custom-swatch" title="Custom text color">
+          <input type="color" id="textColorInput" value="#4a2e39"/>
+        </label>
+        <span class="rt-sep"></span>
+        <span class="rt-color-label">Highlight</span>
+        <div class="rt-swatches" id="highlightColorSwatches"></div>
+        <label class="rt-custom-swatch" title="Custom highlight color">
+          <input type="color" id="highlightColorInput" value="#fff2a8"/>
+        </label>
+      </div>
+      <div id="notesArea" class="notes-editor" contenteditable="true" data-placeholder="Anything the team should know about this day..."></div>
+      <div class="emoji-panel hidden" id="emojiPanel">
+        <div class="emoji-tabs">
+          <button type="button" class="emoji-tab active" data-tab="emoji">Emoji</button>
+          <button type="button" class="emoji-tab" data-tab="stickers">Stickers</button>
+        </div>
+        <div class="emoji-grid" id="emojiGrid"></div>
+        <div class="emoji-grid hidden" id="stickerGrid"></div>
+      </div>
     </div>
 
     <div id="vaScheduleList"></div>
@@ -790,7 +792,46 @@
       <input type="text" id="mgmtNewTitle" placeholder="Event title"/>
       <input type="time" id="mgmtNewTime"/>
     </div>
-    <textarea id="mgmtNewNotes" rows="2" placeholder="Notes (optional)" style="margin-top:8px;"></textarea>
+    <div id="mgmtNotesRTWrap" style="margin-top:8px;">
+      <div class="rt-toolbar">
+        <button type="button" class="rt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+        <button type="button" class="rt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+        <button type="button" class="rt-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+        <span class="rt-sep"></span>
+        <select id="mgmtFontSizeSelect" class="rt-select" title="Text size">
+          <option value="2">Small</option>
+          <option value="3" selected>Normal</option>
+          <option value="5">Large</option>
+          <option value="7">X-Large</option>
+        </select>
+        <span class="rt-sep"></span>
+        <button type="button" class="rt-btn" data-cmd="insertUnorderedList" title="Bullet list">&#8226;&#8801;</button>
+        <span class="rt-sep"></span>
+        <button type="button" class="rt-btn rt-emoji-btn" id="mgmtEmojiToggleBtn" title="Add stickers &amp; emoji">😊</button>
+      </div>
+      <div class="rt-toolbar rt-color-row">
+        <span class="rt-color-label">Text</span>
+        <div class="rt-swatches" id="mgmtTextColorSwatches"></div>
+        <label class="rt-custom-swatch" title="Custom text color">
+          <input type="color" id="mgmtTextColorInput" value="#4a2e39"/>
+        </label>
+        <span class="rt-sep"></span>
+        <span class="rt-color-label">Highlight</span>
+        <div class="rt-swatches" id="mgmtHighlightColorSwatches"></div>
+        <label class="rt-custom-swatch" title="Custom highlight color">
+          <input type="color" id="mgmtHighlightColorInput" value="#fff2a8"/>
+        </label>
+      </div>
+      <div id="mgmtNewNotes" class="notes-editor" contenteditable="true" data-placeholder="Notes (optional)..."></div>
+      <div class="emoji-panel hidden" id="mgmtEmojiPanel">
+        <div class="emoji-tabs">
+          <button type="button" class="emoji-tab active" data-tab="emoji">Emoji</button>
+          <button type="button" class="emoji-tab" data-tab="stickers">Stickers</button>
+        </div>
+        <div class="emoji-grid" id="mgmtEmojiGrid"></div>
+        <div class="emoji-grid hidden" id="mgmtStickerGrid"></div>
+      </div>
+    </div>
     <button class="btn btn-outline" id="mgmtAddEventBtn" style="margin-top:8px;">+ Add event</button>
 
     <div class="modal-actions">
@@ -1153,30 +1194,6 @@ function hasVisibleNoteContent(html){
   return false;
 }
 
-let notesSavedRange = null;
-function saveNotesSelection(){
-  const sel = window.getSelection();
-  const notesEl = $('notesArea');
-  if(sel.rangeCount > 0 && notesEl.contains(sel.anchorNode)){
-    notesSavedRange = sel.getRangeAt(0).cloneRange();
-  }
-}
-function restoreNotesSelection(){
-  const notesEl = $('notesArea');
-  notesEl.focus();
-  if(notesSavedRange){
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(notesSavedRange);
-  }
-}
-function applyNotesCmd(cmd, val){
-  restoreNotesSelection();
-  document.execCommand('styleWithCSS', false, true);
-  document.execCommand(cmd, false, val);
-  saveNotesSelection();
-}
-
 const TEXT_COLOR_PRESETS = ['#4a2e39', '#a43f63', '#c25a7c', '#6f8760', '#d9a441', '#2f2f2f'];
 const HIGHLIGHT_COLOR_PRESETS = ['#fff2a8', '#ffd7e0', '#d5f0d1', '#dfe0ff', '#ffe0c2'];
 
@@ -1193,8 +1210,8 @@ function hydrateStickers(container){
     if(st && !img.getAttribute('src')) img.src = svgDataUri(st.svg);
   });
 }
-function serializeNotesForStorage(){
-  const clone = $('notesArea').cloneNode(true);
+function serializeNotesForStorage(editorId){
+  const clone = $(editorId || 'notesArea').cloneNode(true);
   clone.querySelectorAll('img.note-sticker').forEach(img => img.removeAttribute('src'));
   return clone.innerHTML;
 }
@@ -1209,47 +1226,73 @@ const STICKERS = [
   { name:'clock', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="#fff" stroke="#c25a7c" stroke-width="2.5"/><line x1="20" y1="20" x2="20" y2="10" stroke="#4a2e39" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="20" x2="27" y2="23" stroke="#4a2e39" stroke-width="2" stroke-linecap="round"/></svg>` }
 ];
 
-function buildRichTextUI(){
-  const notesEl = $('notesArea');
-  notesEl.addEventListener('mouseup', saveNotesSelection);
-  notesEl.addEventListener('keyup', saveNotesSelection);
+function initRichTextEditor(ids){
+  let savedRange = null;
+  const editorEl = () => $(ids.editorId);
 
-  document.querySelectorAll('.rt-btn[data-cmd]').forEach(btn => {
-    btn.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd(btn.dataset.cmd); });
+  function saveSelection(){
+    const sel = window.getSelection();
+    if(sel.rangeCount > 0 && editorEl().contains(sel.anchorNode)){
+      savedRange = sel.getRangeAt(0).cloneRange();
+    }
+  }
+  function restoreSelection(){
+    editorEl().focus();
+    if(savedRange){
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+  }
+  function applyCmd(cmd, val){
+    restoreSelection();
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand(cmd, false, val);
+    saveSelection();
+  }
+
+  editorEl().addEventListener('mouseup', saveSelection);
+  editorEl().addEventListener('keyup', saveSelection);
+
+  document.querySelectorAll(`#${ids.wrapId} .rt-btn[data-cmd]`).forEach(btn => {
+    btn.addEventListener('mousedown', (e) => { e.preventDefault(); applyCmd(btn.dataset.cmd); });
   });
 
-  $('fontSizeSelect').addEventListener('mousedown', saveNotesSelection);
-  $('fontSizeSelect').addEventListener('change', () => applyNotesCmd('fontSize', $('fontSizeSelect').value));
+  const fontSel = $(ids.fontSizeSelectId);
+  fontSel.addEventListener('mousedown', saveSelection);
+  fontSel.addEventListener('change', () => applyCmd('fontSize', fontSel.value));
 
-  const textSwatchWrap = $('textColorSwatches');
+  const textSwatchWrap = $(ids.textColorSwatchesId);
   TEXT_COLOR_PRESETS.forEach(c => {
     const sw = document.createElement('button');
     sw.type = 'button'; sw.className = 'rt-swatch'; sw.style.background = c;
-    sw.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd('foreColor', c); });
+    sw.addEventListener('mousedown', (e) => { e.preventDefault(); applyCmd('foreColor', c); });
     textSwatchWrap.appendChild(sw);
   });
-  $('textColorInput').addEventListener('mousedown', saveNotesSelection);
-  $('textColorInput').addEventListener('input', () => applyNotesCmd('foreColor', $('textColorInput').value));
+  const textColorInput = $(ids.textColorInputId);
+  textColorInput.addEventListener('mousedown', saveSelection);
+  textColorInput.addEventListener('input', () => applyCmd('foreColor', textColorInput.value));
 
-  const hlSwatchWrap = $('highlightColorSwatches');
+  const hlSwatchWrap = $(ids.highlightColorSwatchesId);
   HIGHLIGHT_COLOR_PRESETS.forEach(c => {
     const sw = document.createElement('button');
     sw.type = 'button'; sw.className = 'rt-swatch'; sw.style.background = c;
-    sw.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd('hiliteColor', c); });
+    sw.addEventListener('mousedown', (e) => { e.preventDefault(); applyCmd('hiliteColor', c); });
     hlSwatchWrap.appendChild(sw);
   });
-  $('highlightColorInput').addEventListener('mousedown', saveNotesSelection);
-  $('highlightColorInput').addEventListener('input', () => applyNotesCmd('hiliteColor', $('highlightColorInput').value));
+  const hlColorInput = $(ids.highlightColorInputId);
+  hlColorInput.addEventListener('mousedown', saveSelection);
+  hlColorInput.addEventListener('input', () => applyCmd('hiliteColor', hlColorInput.value));
 
-  const emojiGrid = $('emojiGrid');
+  const emojiGrid = $(ids.emojiGridId);
   EMOJI_LIST.forEach(em => {
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = em;
-    b.addEventListener('mousedown', (e) => { e.preventDefault(); applyNotesCmd('insertText', em); });
+    b.addEventListener('mousedown', (e) => { e.preventDefault(); applyCmd('insertText', em); });
     emojiGrid.appendChild(b);
   });
 
-  const stickerGrid = $('stickerGrid');
+  const stickerGrid = $(ids.stickerGridId);
   STICKERS.forEach(st => {
     const b = document.createElement('button');
     b.type = 'button'; b.title = st.name;
@@ -1258,25 +1301,48 @@ function buildRichTextUI(){
     b.appendChild(img);
     b.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      restoreNotesSelection();
+      restoreSelection();
       document.execCommand('insertHTML', false, `<img class="note-sticker" data-sticker="${st.name}" alt="${st.name}"/>`);
-      hydrateStickers($('notesArea'));
-      saveNotesSelection();
+      hydrateStickers(editorEl());
+      saveSelection();
     });
     stickerGrid.appendChild(b);
   });
 
-  $('emojiToggleBtn').addEventListener('mousedown', (e) => { e.preventDefault(); saveNotesSelection(); });
-  $('emojiToggleBtn').addEventListener('click', () => { $('emojiPanel').classList.toggle('hidden'); });
+  const emojiToggle = $(ids.emojiToggleId);
+  emojiToggle.addEventListener('mousedown', (e) => { e.preventDefault(); saveSelection(); });
+  emojiToggle.addEventListener('click', () => { $(ids.emojiPanelId).classList.toggle('hidden'); });
 
-  document.querySelectorAll('.emoji-tab').forEach(tab => {
+  document.querySelectorAll(`#${ids.wrapId} .emoji-tab`).forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.emoji-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll(`#${ids.wrapId} .emoji-tab`).forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const showEmoji = tab.dataset.tab === 'emoji';
-      $('emojiGrid').classList.toggle('hidden', !showEmoji);
-      $('stickerGrid').classList.toggle('hidden', showEmoji);
+      emojiGrid.classList.toggle('hidden', !showEmoji);
+      stickerGrid.classList.toggle('hidden', showEmoji);
     });
+  });
+
+  return { saveSelection, restoreSelection, applyCmd };
+}
+
+function buildRichTextUI(){
+  initRichTextEditor({
+    editorId: 'notesArea', wrapId: 'notesRTWrap',
+    fontSizeSelectId: 'fontSizeSelect',
+    textColorSwatchesId: 'textColorSwatches', textColorInputId: 'textColorInput',
+    highlightColorSwatchesId: 'highlightColorSwatches', highlightColorInputId: 'highlightColorInput',
+    emojiToggleId: 'emojiToggleBtn', emojiPanelId: 'emojiPanel',
+    emojiGridId: 'emojiGrid', stickerGridId: 'stickerGrid'
+  });
+
+  initRichTextEditor({
+    editorId: 'mgmtNewNotes', wrapId: 'mgmtNotesRTWrap',
+    fontSizeSelectId: 'mgmtFontSizeSelect',
+    textColorSwatchesId: 'mgmtTextColorSwatches', textColorInputId: 'mgmtTextColorInput',
+    highlightColorSwatchesId: 'mgmtHighlightColorSwatches', highlightColorInputId: 'mgmtHighlightColorInput',
+    emojiToggleId: 'mgmtEmojiToggleBtn', emojiPanelId: 'mgmtEmojiPanel',
+    emojiGridId: 'mgmtEmojiGrid', stickerGridId: 'mgmtStickerGrid'
   });
 
   $('clearNoteBtn').addEventListener('click', () => {
@@ -1513,7 +1579,8 @@ function openMgmtDayModal(dateStr){
   $('mgmtModalDate').textContent = niceDate;
   $('mgmtNewTitle').value = '';
   $('mgmtNewTime').value = '';
-  $('mgmtNewNotes').value = '';
+  $('mgmtNewNotes').innerHTML = '';
+  $('mgmtEmojiPanel').classList.add('hidden');
   renderMgmtEventList();
   $('mgmtDayOverlay').classList.remove('hidden');
 }
@@ -1526,12 +1593,16 @@ function renderMgmtEventList(){
   events.forEach(ev => {
     const row = document.createElement('div');
     row.className = 'mgmt-event-row';
-    row.innerHTML = `
-      <div>
-        <div class="ev-title">${ev.time ? formatEtLabel(ev.time) + ' — ' : ''}${escapeHtml(ev.title)}</div>
-        ${ev.notes ? `<div class="ev-notes">${escapeHtml(ev.notes)}</div>` : ''}
-      </div>
-    `;
+    const notesWrap = document.createElement('div');
+    notesWrap.className = 'ev-notes';
+    if(hasVisibleNoteContent(ev.notes)){
+      notesWrap.innerHTML = ev.notes;
+      hydrateStickers(notesWrap);
+    }
+    const titleWrap = document.createElement('div');
+    titleWrap.innerHTML = `<div class="ev-title">${ev.time ? formatEtLabel(ev.time) + ' — ' : ''}${escapeHtml(ev.title)}</div>`;
+    if(hasVisibleNoteContent(ev.notes)) titleWrap.appendChild(notesWrap);
+    row.appendChild(titleWrap);
     const delBtn = document.createElement('button');
     delBtn.className = 'btn btn-ghost btn-sm';
     delBtn.textContent = '🗑';
@@ -1556,7 +1627,7 @@ $('mgmtAddEventBtn').onclick = () => {
     id: 'mev_' + Date.now(),
     title,
     time: $('mgmtNewTime').value || '',
-    notes: $('mgmtNewNotes').value.trim()
+    notes: serializeNotesForStorage('mgmtNewNotes')
   };
   if(!state.mgmtEvents[mgmtSelectedDate]) state.mgmtEvents[mgmtSelectedDate] = [];
   state.mgmtEvents[mgmtSelectedDate].push(ev);
@@ -1564,7 +1635,7 @@ $('mgmtAddEventBtn').onclick = () => {
   queueSave();
   $('mgmtNewTitle').value = '';
   $('mgmtNewTime').value = '';
-  $('mgmtNewNotes').value = '';
+  $('mgmtNewNotes').innerHTML = '';
   renderMgmtEventList();
   renderMgmtCalendar();
 };
