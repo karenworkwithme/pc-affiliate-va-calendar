@@ -139,6 +139,13 @@
     font-family:inherit; font-size:13px;
   }
   .admin-unlocked-tag{font-size:12.5px; color:var(--leaf-deep); font-weight:700;}
+  .weekday-row{
+    border:1px solid var(--line); border-radius:12px; padding:9px 12px; margin-bottom:7px;
+    background:#fffaf8; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .weekday-row .day-name{font-weight:700; font-size:13.5px; width:88px; flex-shrink:0;}
+  .weekday-row .time-inputs{margin-top:0; flex:1;}
+  .weekday-row .toggle{flex-shrink:0;}
 
   .add-va-form{display:none; flex-direction:column; gap:8px; margin-top:6px;}
   .add-va-form.open{display:flex;}
@@ -433,6 +440,7 @@
         <div class="time" id="clockPH">--:--</div>
         <div class="date" id="datePH">-</div>
       </div>
+      <button class="btn btn-outline btn-sm" id="adminToggleBtn" style="align-self:flex-start;">🔒 Admin sign-in</button>
     </div>
   </header>
 
@@ -472,6 +480,7 @@
           Time off requests
           <span class="timeoff-badge hidden" id="timeoffBadge">0</span>
         </button>
+        <button class="btn btn-outline" id="weeklyScheduleBtn" style="width:100%; margin-top:8px;">📋 Set weekly schedule</button>
       </div>
     </aside>
 
@@ -516,6 +525,7 @@
   <div class="modal" id="dayModal">
     <h2 id="modalDate">Day</h2>
     <div class="modal-sub">Set schedules, mark days off, flag invoice dates and leave notes.</div>
+    <div class="off-note hidden" id="viewOnlyBanner" style="background:#fff6f4; border:1px solid var(--line); border-radius:10px; padding:8px 12px; margin-bottom:6px;">👁 View only — ask the admin to sign in to make changes here.</div>
 
     <div class="field-row">
       <label>Invoice due today</label>
@@ -526,7 +536,10 @@
     <div class="assignee-chips" id="assigneeChips"></div>
     <div class="assignee-hint" id="assigneeHint">Tap a name so their note is highlighted in their color — a quick way for each VA to spot what's theirs.</div>
 
-    <label style="font-weight:700; font-size:14px; display:block; margin:14px 0 6px;">Notes</label>
+    <div class="field-row" style="margin:14px 0 6px;">
+      <label style="font-weight:700; font-size:14px;">Notes</label>
+      <button type="button" class="btn btn-ghost" id="clearNoteBtn" style="font-size:12.5px; padding:4px 8px;">🗑 Clear note</button>
+    </div>
     <div class="rt-toolbar">
       <button type="button" class="rt-btn" data-cmd="bold" title="Bold"><b>B</b></button>
       <button type="button" class="rt-btn" data-cmd="italic" title="Italic"><i>I</i></button>
@@ -609,6 +622,18 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="adminSigninOverlay">
+  <div class="modal" style="max-width:400px;">
+    <h2>Admin sign-in</h2>
+    <div class="modal-sub">Enter the admin email to unlock editing for this calendar. Everyone else sees a view-only calendar where the only action is requesting time off.</div>
+    <input type="email" id="adminSigninEmail" placeholder="Admin email" style="width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit; margin-top:6px;"/>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeAdminSigninBtn">Cancel</button>
+      <button class="btn btn-primary" id="submitAdminSigninBtn">Unlock</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="requestTimeOffOverlay">
   <div class="modal" id="requestTimeOffModal" style="max-width:460px;">
     <h2>Request time off</h2>
@@ -644,10 +669,8 @@
     <div class="modal-sub">Approving a request automatically marks that VA as off on the calendar for those dates.</div>
 
     <div class="admin-gate" id="adminGate">
-      <span style="font-size:12.5px; font-weight:700; color:var(--plum-soft);">Admin:</span>
-      <input type="email" id="adminEmailInput" placeholder="Enter admin email to approve/deny"/>
-      <button class="btn btn-outline btn-sm" id="adminUnlockBtn">Unlock</button>
-      <span class="admin-unlocked-tag hidden" id="adminUnlockedTag">✓ Unlocked for approvals</span>
+      <span class="admin-unlocked-tag hidden" id="adminUnlockedTag">🔓 Signed in as admin — you can approve or deny below.</span>
+      <span class="off-note" id="adminLockedTag" style="margin:0;">🔒 Sign in as admin (top right of the page) to approve or deny requests.</span>
     </div>
 
     <div id="timeOffListBody"></div>
@@ -655,6 +678,34 @@
 
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="$('timeOffListOverlay').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="weeklyScheduleOverlay">
+  <div class="modal" id="weeklyScheduleModal" style="max-width:560px;">
+    <h2>Set weekly schedule</h2>
+    <div class="modal-sub">Set a repeating weekly pattern for one VA, then apply it across any date range — no need to click every day.</div>
+
+    <label class="invite-field-label">VA</label>
+    <select id="weeklyVaSelect" class="rt-select" style="width:100%; padding:9px 10px; font-size:14px;"></select>
+
+    <div id="weeklyDayRows" style="margin-top:12px;"></div>
+
+    <label class="invite-field-label" style="margin-top:16px;">Apply from</label>
+    <div style="display:flex; gap:10px;">
+      <div style="flex:1;">
+        <input type="date" id="weeklyRangeStart" style="width:100%; padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
+      </div>
+      <div style="flex:1;">
+        <input type="date" id="weeklyRangeEnd" style="width:100%; padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:6px;">This overwrites any existing shifts for this VA on matching days within the range — days for other VAs are untouched.</div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeWeeklyScheduleBtn">Cancel</button>
+      <button class="btn btn-primary" id="applyWeeklyScheduleBtn">Apply to calendar</button>
     </div>
   </div>
 </div>
@@ -899,19 +950,22 @@ function renderVaList(){
   state.vas.forEach(va => {
     const chip = document.createElement('div');
     chip.className = 'va-chip';
+    const showControls = isAdminUnlocked;
     chip.innerHTML = `
       <span class="va-dot" style="background:${va.color}"></span>
       <span class="name">${escapeHtml(va.name)}</span>
-      ${va.email ? `<button class="invite-btn" title="Email invite to ${escapeHtml(va.email)}">&#9993;&#65039;</button>` : ''}
-      <button title="Remove ${escapeHtml(va.name)}">&times;</button>
+      ${showControls && va.email ? `<button class="invite-btn" title="Email invite to ${escapeHtml(va.email)}">&#9993;&#65039;</button>` : ''}
+      ${showControls ? `<button title="Remove ${escapeHtml(va.name)}">&times;</button>` : ''}
       ${va.email ? `<span class="email">${escapeHtml(va.email)}</span>` : ''}
     `;
-    const buttons = chip.querySelectorAll('button');
-    if(va.email){
-      buttons[0].onclick = () => sendInviteEmail(va);
-      buttons[1].onclick = () => removeVa(va.id);
-    } else {
-      buttons[0].onclick = () => removeVa(va.id);
+    if(showControls){
+      const buttons = chip.querySelectorAll('button');
+      if(va.email){
+        buttons[0].onclick = () => sendInviteEmail(va);
+        buttons[1].onclick = () => removeVa(va.id);
+      } else {
+        buttons[0].onclick = () => removeVa(va.id);
+      }
     }
     list.appendChild(chip);
   });
@@ -1092,6 +1146,21 @@ function buildRichTextUI(){
       $('stickerGrid').classList.toggle('hidden', showEmoji);
     });
   });
+
+  $('clearNoteBtn').addEventListener('click', () => {
+    if(!isAdminUnlocked) return;
+    if(!hasVisibleNoteContent($('notesArea').innerHTML)) return;
+    if(!confirm('Delete this note? This clears the text and any stickers for this day.')) return;
+    $('notesArea').innerHTML = '';
+    document.querySelectorAll('#assigneeChips .assignee-chip.active').forEach(chip => {
+      chip.classList.remove('active');
+      chip.style.background = '';
+      const vaId = chip.dataset.vaId;
+      const va = state.vas.find(v => v.id === vaId);
+      chip.querySelector('.dot').style.background = va ? va.color : '#ccc';
+    });
+    updateNotesHighlight();
+  });
 }
 
 function escapeHtml(s){
@@ -1265,6 +1334,7 @@ function renderAssigneeChips(selectedIds){
     if(selectedIds.includes(va.id)) chip.style.background = va.color;
     chip.innerHTML = `<span class="dot" style="background:${selectedIds.includes(va.id) ? '#fff' : va.color}"></span>${escapeHtml(va.name)}`;
     chip.onclick = () => {
+      if(!isAdminUnlocked) return;
       chip.classList.toggle('active');
       const isActive = chip.classList.contains('active');
       chip.style.background = isActive ? va.color : '';
@@ -1309,7 +1379,7 @@ function openDayModal(dateStr){
 
   const invoiceToggle = $('invoiceToggle');
   invoiceToggle.classList.toggle('on', !!entry.invoiceDue);
-  invoiceToggle.onclick = () => invoiceToggle.classList.toggle('on');
+  invoiceToggle.onclick = () => { if(!isAdminUnlocked) return; invoiceToggle.classList.toggle('on'); };
 
   const list = $('vaScheduleList');
   list.innerHTML = '';
@@ -1352,15 +1422,28 @@ function openDayModal(dateStr){
         phPreview.textContent = `= ${phStart} – ${phEnd} PHT`;
       }
     }
-    offToggle.onclick = () => { offToggle.classList.toggle('on'); refreshPreview(); };
+    offToggle.onclick = () => { if(!isAdminUnlocked) return; offToggle.classList.toggle('on'); refreshPreview(); };
     startInput.onchange = refreshPreview;
     endInput.onchange = refreshPreview;
+    if(!isAdminUnlocked){ startInput.disabled = true; endInput.disabled = true; }
     refreshPreview();
 
     list.appendChild(row);
   });
 
   $('dayOverlay').classList.remove('hidden');
+  setDayModalEditable(isAdminUnlocked);
+}
+
+function setDayModalEditable(editable){
+  $('viewOnlyBanner').classList.toggle('hidden', editable);
+  $('notesArea').contentEditable = editable ? 'true' : 'false';
+  document.querySelectorAll('.rt-btn, #fontSizeSelect, .rt-swatch, .rt-custom-swatch input[type=color], #clearNoteBtn').forEach(el => {
+    el.disabled = !editable;
+    el.style.opacity = editable ? '' : '0.5';
+    el.style.pointerEvents = editable ? '' : 'none';
+  });
+  $('saveDayBtn').style.display = editable ? '' : 'none';
 }
 
 $('closeModalBtn').onclick = () => $('dayOverlay').classList.add('hidden');
@@ -1572,16 +1655,43 @@ $('viewTimeOffBtn').onclick = () => {
 };
 $('timeOffListOverlay').onclick = (e) => { if(e.target === $('timeOffListOverlay')) $('timeOffListOverlay').classList.add('hidden'); };
 
-$('adminUnlockBtn').onclick = () => {
-  const val = ($('adminEmailInput').value || '').trim().toLowerCase();
-  if(val === ADMIN_EMAIL.toLowerCase()){
-    isAdminUnlocked = true;
-    $('adminUnlockedTag').classList.remove('hidden');
-    $('adminEmailInput').style.display = 'none';
-    $('adminUnlockBtn').style.display = 'none';
+function refreshAdminUI(){
+  const btn = $('adminToggleBtn');
+  btn.textContent = isAdminUnlocked ? '🔓 Admin (sign out)' : '🔒 Admin sign-in';
+
+  $('addVaBtn').style.display = isAdminUnlocked ? '' : 'none';
+  if(!isAdminUnlocked){ $('addVaForm').classList.remove('open'); }
+  $('weeklyScheduleBtn').style.display = isAdminUnlocked ? '' : 'none';
+  const inviteRow = document.querySelector('.invite-link-row');
+  if(inviteRow) inviteRow.style.display = isAdminUnlocked ? '' : 'none';
+
+  $('adminUnlockedTag').classList.toggle('hidden', !isAdminUnlocked);
+  $('adminLockedTag').classList.toggle('hidden', isAdminUnlocked);
+
+  renderVaList();
+}
+
+$('adminToggleBtn').onclick = () => {
+  if(isAdminUnlocked){
+    isAdminUnlocked = false;
+    refreshAdminUI();
     renderTimeOffList();
   } else {
-    alert("That email doesn't match the approver's email for this calendar.");
+    $('adminSigninEmail').value = '';
+    $('adminSigninOverlay').classList.remove('hidden');
+  }
+};
+$('closeAdminSigninBtn').onclick = () => $('adminSigninOverlay').classList.add('hidden');
+$('adminSigninOverlay').onclick = (e) => { if(e.target === $('adminSigninOverlay')) $('adminSigninOverlay').classList.add('hidden'); };
+$('submitAdminSigninBtn').onclick = () => {
+  const val = ($('adminSigninEmail').value || '').trim().toLowerCase();
+  if(val === ADMIN_EMAIL.toLowerCase()){
+    isAdminUnlocked = true;
+    $('adminSigninOverlay').classList.add('hidden');
+    refreshAdminUI();
+    renderTimeOffList();
+  } else {
+    alert("That email doesn't match the admin email for this calendar.");
   }
 };
 
@@ -1660,6 +1770,101 @@ function renderTimeOffList(){
   });
 }
 
+// ---------- weekly recurring schedule ----------
+const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function openWeeklyScheduleModal(){
+  const vaSelect = $('weeklyVaSelect');
+  vaSelect.innerHTML = '';
+  if(!state.vas.length){
+    vaSelect.innerHTML = '<option value="">Add a VA first</option>';
+  } else {
+    state.vas.forEach(va => {
+      const opt = document.createElement('option');
+      opt.value = va.id;
+      opt.textContent = va.name;
+      vaSelect.appendChild(opt);
+    });
+  }
+
+  const rowsWrap = $('weeklyDayRows');
+  rowsWrap.innerHTML = '';
+  WEEKDAY_NAMES.forEach((name, idx) => {
+    const row = document.createElement('div');
+    row.className = 'weekday-row';
+    row.dataset.dow = idx;
+    row.innerHTML = `
+      <span class="day-name">${name}</span>
+      <div class="toggle day-off-toggle"><div class="knob"></div></div>
+      <div class="time-inputs">
+        <input type="time" class="day-start-input" value="09:00"/>
+        <span style="font-size:12.5px; color:var(--plum-soft);">to</span>
+        <input type="time" class="day-end-input" value="17:00"/>
+      </div>
+    `;
+    const offToggle = row.querySelector('.day-off-toggle');
+    const timeInputs = row.querySelector('.time-inputs');
+    offToggle.onclick = () => {
+      offToggle.classList.toggle('on');
+      timeInputs.style.display = offToggle.classList.contains('on') ? 'none' : 'flex';
+    };
+    rowsWrap.appendChild(row);
+  });
+
+  const now = new Date();
+  const rangeStart = new Date(viewYear, viewMonth, 1);
+  const rangeEnd = new Date(viewYear, viewMonth + 1, 0);
+  $('weeklyRangeStart').value = dateKey(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+  $('weeklyRangeEnd').value = dateKey(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+
+  $('weeklyScheduleOverlay').classList.remove('hidden');
+}
+
+$('weeklyScheduleBtn').onclick = openWeeklyScheduleModal;
+$('closeWeeklyScheduleBtn').onclick = () => $('weeklyScheduleOverlay').classList.add('hidden');
+$('weeklyScheduleOverlay').onclick = (e) => { if(e.target === $('weeklyScheduleOverlay')) $('weeklyScheduleOverlay').classList.add('hidden'); };
+
+$('applyWeeklyScheduleBtn').onclick = () => {
+  const vaId = $('weeklyVaSelect').value;
+  const startStr = $('weeklyRangeStart').value;
+  const endStr = $('weeklyRangeEnd').value;
+  if(!vaId || !startStr || !endStr){ return; }
+  if(endStr < startStr){ alert('The end date must be on or after the start date.'); return; }
+
+  const pattern = {};
+  document.querySelectorAll('#weeklyDayRows .weekday-row').forEach(row => {
+    const dow = Number(row.dataset.dow);
+    const isOff = row.querySelector('.day-off-toggle').classList.contains('on');
+    pattern[dow] = {
+      off: isOff,
+      start: row.querySelector('.day-start-input').value || '09:00',
+      end: row.querySelector('.day-end-input').value || '17:00'
+    };
+  });
+
+  const [sy, sm, sd] = startStr.split('-').map(Number);
+  const [ey, em, ed] = endStr.split('-').map(Number);
+  const cursor = new Date(sy, sm - 1, sd);
+  const endDate = new Date(ey, em - 1, ed);
+  let daysApplied = 0;
+
+  while(cursor <= endDate){
+    const dow = cursor.getDay();
+    const dayPattern = pattern[dow];
+    const key = dateKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+    const entry = state.entries[key] || { notes:'', invoiceDue:false, vaSchedules:{}, noteAssignees:[] };
+    entry.vaSchedules = entry.vaSchedules || {};
+    entry.vaSchedules[vaId] = { off: dayPattern.off, start: dayPattern.start, end: dayPattern.end };
+    state.entries[key] = entry;
+    daysApplied++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  queueSave();
+  renderCalendar();
+  $('weeklyScheduleOverlay').classList.add('hidden');
+};
+
 // ---------- init ----------
 async function init(){
   const now = new Date();
@@ -1669,6 +1874,7 @@ async function init(){
   renderFloralCorners();
   buildRichTextUI();
   await loadState();
+  refreshAdminUI();
   renderVaList();
   renderCalendar();
   renderTimeOffBadge();
