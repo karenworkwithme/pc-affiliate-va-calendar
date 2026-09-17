@@ -599,7 +599,7 @@
 
     <div class="field-row" id="notesFieldRow" style="margin:14px 0 6px;">
       <label style="font-weight:700; font-size:14px;">Notes</label>
-      <button type="button" class="btn btn-ghost" id="clearNoteBtn" style="font-size:12.5px; padding:4px 8px;">🗑 Clear note</button>
+      <button type="button" class="btn btn-ghost" id="clearNoteBtn" style="font-size:12.5px; padding:4px 8px; color:#a5455f;">🗑 Delete note</button>
     </div>
     <div id="notesRTWrap">
       <div class="rt-toolbar">
@@ -707,18 +707,18 @@
 <div class="overlay hidden" id="requestTimeOffOverlay">
   <div class="modal" id="requestTimeOffModal" style="max-width:460px;">
     <h2>Request time off</h2>
-    <div class="modal-sub">Pick who it's for, the dates, and a short reason.</div>
+    <div class="modal-sub">Pick who it's for, the dates, and a short reason. Dates are based on the US Eastern calendar (the same calendar the shifts use), regardless of where you're viewing from.</div>
 
     <label class="invite-field-label">VA</label>
     <select id="reqVaSelect" class="rt-select" style="width:100%; padding:9px 10px; font-size:14px;"></select>
 
     <div style="display:flex; gap:10px; margin-top:12px;">
       <div style="flex:1;">
-        <label class="invite-field-label">Start date</label>
+        <label class="invite-field-label">Start date <span style="font-weight:400; font-style:italic;">(ET)</span></label>
         <input type="date" id="reqStartDate" style="width:100%; padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
       </div>
       <div style="flex:1;">
-        <label class="invite-field-label">End date</label>
+        <label class="invite-field-label">End date <span style="font-weight:400; font-style:italic;">(ET)</span></label>
         <input type="date" id="reqEndDate" style="width:100%; padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-family:inherit;"/>
       </div>
     </div>
@@ -916,8 +916,11 @@ let activeZone = 'ET'; // 'ET' or 'PH' - which calendar is currently on screen
 const $ = (id) => document.getElementById(id);
 
 function todayStr(){
+  // "today" for this calendar always means today in Eastern Time (the zone
+  // everything is scheduled in), not the viewer's own local device date.
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const dtf = new Intl.DateTimeFormat('en-CA', { timeZone: ET_ZONE, year:'numeric', month:'2-digit', day:'2-digit' });
+  return dtf.format(d); // en-CA formats as YYYY-MM-DD
 }
 
 function dateKey(y,m,d){
@@ -1092,6 +1095,62 @@ function etToZone(dateStr, hhmm, targetTz){
   return r.timeLabel + dayLabel;
 }
 function etToPh(dateStr, hhmm){ return etToZone(dateStr, hhmm, PH_ZONE); }
+
+function appendShiftChip(shiftRow, va, label, title){
+  const chip = document.createElement('div');
+  chip.className = 'shift-chip';
+  const dot = document.createElement('span');
+  dot.className = 'mini-dot';
+  dot.style.background = va.color;
+  const txt = document.createElement('span');
+  txt.className = 'txt';
+  txt.textContent = label;
+  chip.title = title;
+  chip.appendChild(dot);
+  chip.appendChild(txt);
+  shiftRow.appendChild(chip);
+}
+
+function timeToMinutes(hhmm){
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// For a calendar day shown in a non-Eastern zone, find every VA shift whose
+// converted START actually falls on this calendar date in that zone — so a
+// shift that starts late ET and crosses into the next day shows up on the
+// correct day instead of needing a "+1 day" note on the start time.
+function getShiftsForDisplayDate(displayKey, zoneKey){
+  const zoneInfo = ZONES[zoneKey];
+  const [y, m, d] = displayKey.split('-').map(Number);
+  const results = [];
+  [-1, 0, 1].forEach(offset => {
+    const candidate = new Date(y, m - 1, d + offset);
+    const candidateKey = dateKey(candidate.getFullYear(), candidate.getMonth(), candidate.getDate());
+    const entry = state.entries[candidateKey];
+    if(!entry || !entry.vaSchedules) return;
+    state.vas.forEach(va => {
+      const sched = entry.vaSchedules[va.id];
+      if(!sched || sched.off) return;
+      const start = sched.start || '09:00';
+      const end = sched.end || '17:00';
+      const zStart = convertEtToZoneRaw(candidateKey, start, zoneInfo.tz);
+      if(zStart.dayShift !== -offset) return;
+
+      // an overnight ET shift (end time-of-day earlier than start) implicitly
+      // ends on the next ET calendar day, before any zone conversion at all.
+      const implicitEndOffset = timeToMinutes(end) < timeToMinutes(start) ? 1 : 0;
+      const endRefDate = new Date(candidate.getFullYear(), candidate.getMonth(), candidate.getDate() + implicitEndOffset);
+      const endRefKey = dateKey(endRefDate.getFullYear(), endRefDate.getMonth(), endRefDate.getDate());
+      const zEndRaw = convertEtToZoneRaw(endRefKey, end, zoneInfo.tz);
+      const trueEndDayShift = implicitEndOffset + zEndRaw.dayShift;
+      const zEnd = { timeLabel: zEndRaw.timeLabel, dayShift: trueEndDayShift - zStart.dayShift };
+
+      results.push({ va, sched, zStart, zEnd, sourceDateKey: candidateKey });
+    });
+  });
+  return results;
+}
 
 function formatEtLabel(hhmm){
   const [hh,mm] = hhmm.split(':').map(Number);
@@ -1353,6 +1412,7 @@ function buildRichTextUI(){
     emojiToggleId: 'emojiToggleBtn', emojiPanelId: 'emojiPanel',
     emojiGridId: 'emojiGrid', stickerGridId: 'stickerGrid'
   });
+  $('notesArea').addEventListener('input', updateNotesHighlight);
 
   initRichTextEditor({
     editorId: 'mgmtNewNotes', wrapId: 'mgmtNotesRTWrap',
@@ -1446,37 +1506,29 @@ function renderCalendar(){
       if(entry.vaSchedules){
         state.vas.forEach(va => {
           const sched = entry.vaSchedules[va.id];
-          if(sched){
-            if(sched.off){ anyOff = true; }
-            else {
-              const start = sched.start || '09:00';
-              const end = sched.end || '17:00';
-              const chip = document.createElement('div');
-              chip.className = 'shift-chip';
-              const dot = document.createElement('span');
-              dot.className = 'mini-dot';
-              dot.style.background = va.color;
-              const txt = document.createElement('span');
-              txt.className = 'txt';
-              if(activeZone === 'ET'){
-                txt.textContent = `${va.name.split(' ')[0]} ${formatEtLabel(start)}\u2013${formatEtLabel(end)}`;
-                chip.title = `${va.name}: ${formatEtLabel(start)} \u2013 ${formatEtLabel(end)} ET`;
-              } else {
-                const zoneInfo = ZONES[activeZone];
-                const zStart = convertEtToZoneRaw(key, start, zoneInfo.tz);
-                const zEnd = convertEtToZoneRaw(key, end, zoneInfo.tz);
-                const startSuffix = zStart.dayShift !== 0 ? ' +1d' : '';
-                const endSuffix = zEnd.dayShift !== 0 ? ' +1d' : '';
-                txt.textContent = `${va.name.split(' ')[0]} ${zStart.timeLabel}${startSuffix}\u2013${zEnd.timeLabel}${endSuffix}`;
-                chip.title = `${va.name}: ${zStart.timeLabel}${startSuffix} \u2013 ${zEnd.timeLabel}${endSuffix} ${activeZone} (converted from ${formatEtLabel(start)}\u2013${formatEtLabel(end)} ET)`;
-              }
-              chip.appendChild(dot);
-              chip.appendChild(txt);
-              shiftRow.appendChild(chip);
-            }
+          if(sched && sched.off) anyOff = true;
+        });
+      }
+    }
+
+    if(activeZone === 'ET'){
+      if(entry && entry.vaSchedules){
+        state.vas.forEach(va => {
+          const sched = entry.vaSchedules[va.id];
+          if(sched && !sched.off){
+            const start = sched.start || '09:00';
+            const end = sched.end || '17:00';
+            appendShiftChip(shiftRow, va, `${va.name.split(' ')[0]} ${formatEtLabel(start)}\u2013${formatEtLabel(end)}`, `${va.name}: ${formatEtLabel(start)} \u2013 ${formatEtLabel(end)} ET`);
           }
         });
       }
+    } else {
+      getShiftsForDisplayDate(key, activeZone).forEach(s => {
+        const endSuffix = s.zEnd.dayShift !== 0 ? ' +1d' : '';
+        const label = `${s.va.name.split(' ')[0]} ${s.zStart.timeLabel}\u2013${s.zEnd.timeLabel}${endSuffix}`;
+        const title = `${s.va.name}: ${s.zStart.timeLabel} \u2013 ${s.zEnd.timeLabel}${endSuffix} ${activeZone} (converted from ${formatEtLabel(s.sched.start || '09:00')}\u2013${formatEtLabel(s.sched.end || '17:00')} ET on ${s.sourceDateKey})`;
+        appendShiftChip(shiftRow, s.va, label, title);
+      });
     }
     cell.appendChild(shiftRow);
 
@@ -1692,7 +1744,8 @@ function loadNotesForActiveVa(){
 function updateNotesHighlight(){
   const notesEl = $('notesArea');
   const va = activeNotesVaId ? state.vas.find(v => v.id === activeNotesVaId) : null;
-  if(!va){
+  const hasContent = hasVisibleNoteContent(notesEl.innerHTML);
+  if(!va || !hasContent){
     notesEl.style.borderLeftColor = 'var(--line)';
     notesEl.style.background = '#fffefd';
     return;
